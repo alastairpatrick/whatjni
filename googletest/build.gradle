@@ -1,0 +1,10 @@
+plugins {
+    id 'cpp-library'
+}
+
+library {
+    linkage = [Linkage.STATIC]
+    source.from file('googletest/googletest/src/gtest-all.cc')
+    privateHeaders.from file('googletest/googletest')
+    publicHeaders.from file('googletest/googletest/include')
+}

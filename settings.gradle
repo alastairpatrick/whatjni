@@ -1,0 +1,6 @@
+rootProject.name = 'whatjni'
+include 'base'
+include 'mymodule'
+include 'googletest'
+include 'mybindings'
+
