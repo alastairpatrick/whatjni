@@ -37,4 +37,6 @@ jobs:
           architecture: ${{matrix.arch}}
 
       - name: Gradle
-        run: ./gradle build
+        run: ./gradlew build
+          shell: bash
+
