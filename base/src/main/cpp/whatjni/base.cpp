@@ -1,5 +1,6 @@
 #include "whatjni/base.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -89,12 +90,30 @@ static void* lookup_module_symbol(Module module, const char* name) {
 }
 
 static int initialize_inner() {
+    static const char* jvm_module_paths[] = {
+        "/bin/server/jvm.dll",
+        "/jre/bin/server/jvm.dll",
+        "/bin/client/jvm.dll",
+        "/jre/bin/client/jvm.dll",
+        "/bin/default/jvm.dll",
+        "/jre/bin/default/jvm.dll",
+    };
+
     Module jvm_module = open_module("jvm.dll");
 
     if (!jvm_module) {
         const char* java_home = getenv("JAVA_HOME");
         if (java_home) {
-            jvm_module = open_module(string(java_home) + "\\bin\\server\\jvm.dll");
+            for (int i = 0; i < std::size(jvm_module_paths); ++i) {
+                string relative_path = jvm_module_paths[i];
+#if _WIN32
+                std::replace(relative_path.begin(), relative_path.end(), '/', '\\');
+#endif
+                jvm_module = open_module(string(java_home) + relative_path);
+                if (jvm_module) {
+                    break;
+                }
+            }
         }
     }
 
