@@ -15,17 +15,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows]
+        os: [windows, linux]
         arch: [x64]
         buildType: [Release]
         javaVersion: [8]
+        javaDistribution: [zulu]
 
         include:
           - os: windows
             arch: x64
             environment: windows-2019
-            buildType: Release
             javaVersion: 8
+            javaDistribution: zulu
+
+          - os: linux
+            arch: x64
+            environment: ubuntu-20.04
+            javaVersion: 8
+            javaDistribution: zulu
 
     steps:
       - name: Checkout source code
@@ -37,7 +44,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: ${{matrix.javaVersion}}
-          distribution: zulu
+          distribution: ${{matrix.javaDistribution}}
           architecture: ${{matrix.arch}}
 
       - name: Gradle
