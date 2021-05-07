@@ -40,6 +40,11 @@ jobs:
         with:
           submodules: true
 
+      - name: JAVA_HOME diagnostics
+        run: |
+          echo JAVA_HOME = $JAVA_HOME \
+          ls -R $JAVA_HOME
+
       - name: Set up JDK
         uses: actions/setup-java@v2
         with:
