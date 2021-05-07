@@ -36,3 +36,13 @@ unitTest {
 tasks.withType(CppCompile).configureEach {
     macros.put("WHATJNI_BASE_EXPORT", null)
 }
+
+tasks.withType(LinkExecutable).configureEach {
+    linkerArgs.addAll targetPlatform.map { targetPlatform ->
+        if (targetPlatform.operatingSystem.isLinux()) {
+            return ['-ldl', '-lpthread']
+        }
+        return []
+    }
+}
+

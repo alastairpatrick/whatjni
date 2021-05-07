@@ -36,25 +36,25 @@ public:
     }
 
     ref(T* rhs) {
-        new_auto_ref(&(jobject) obj, (jobject) rhs);
+        new_auto_ref((jobject*) &obj, (jobject) rhs);
     }
     template <typename U>ref(U* rhs) {
         T* t = (U*) nullptr;  // static assertion
-        new_auto_ref(&(jobject) obj, (jobject) rhs);
+        new_auto_ref((jobject*) &obj, (jobject) rhs);
     }
 
     ref(const ref& rhs) {
-        new_auto_ref(&(jobject) obj, (jobject) rhs.obj);
+        new_auto_ref((jobject*) &obj, (jobject) rhs.obj);
     }
     template<typename U> ref(const ref<U>& rhs) {
         T* t = (U*) nullptr;  // static assertion
-        new_auto_ref(&(jobject) obj, (jobject) rhs.obj);
+        new_auto_ref((jobject*) &obj, (jobject) rhs.obj);
     }
 
     ref(const char16_t* str, size_t length) {
         T* t = (::java::lang::String*) nullptr;  // static assert
         jobject local = new_string((const jchar*) str, length);
-        move_auto_ref(&(jobject) obj, &local);
+        move_auto_ref((jobject*) &obj, &local);
     }
     ref(const char16_t* str): ref(str, std::char_traits<char16_t>::length(str)) {}
     ref(const std::u16string& str): ref(str.data(), str.length()) {}
@@ -63,52 +63,52 @@ public:
     ref(std::u16string_view str) {
         T* t = (::java::lang::String*) nullptr;  // static assert
         jobject local = new_string((const jchar*) str.data(), str.length());
-        move_auto_ref(&(jobject) obj, &local);
+        move_auto_ref((jobject*) &obj, &local);
     }
 #endif
 
     ref(ref&& rhs) {
-        move_auto_ref(&(jobject) obj, &(jobject) rhs.obj);
+        move_auto_ref((jobject*) &obj, (jobject*) &rhs.obj);
     }
     template<typename U> ref(ref<U>&& rhs) {
         T* t = (U*) nullptr;  // static assertion
-        move_auto_ref(&(jobject) obj, &(jobject) rhs.obj);
+        move_auto_ref((jobject*) &obj, (jobject*) &rhs.obj);
     }
 
     ~ref() {
-        delete_auto_ref(&(jobject) obj);
+        delete_auto_ref((jobject*) &obj);
     }
 
     ref& operator=(std::nullptr_t) {
-        delete_auto_ref(&(jobject) obj);
+        delete_auto_ref((jobject*) &obj);
         obj = nullptr;
         return *this;
     }
     ref& operator=(const ref& rhs) {
         if (this != &rhs) {
-            delete_auto_ref(&(jobject) obj);
-            new_auto_ref(&(jobject) obj, (jobject) rhs.obj);
+            delete_auto_ref((jobject*) &obj);
+            new_auto_ref((jobject*) &obj, (jobject) rhs.obj);
         }
         return *this;
     }
     template<typename U> ref& operator=(const ref<U>& rhs) {
         T* t = (U*) nullptr;  // static assertion
-        delete_auto_ref(&(jobject) obj);
-        new_auto_ref(&(jobject) obj, (jobject) rhs.obj);
+        delete_auto_ref((jobject*) &obj);
+        new_auto_ref((jobject*) &obj, (jobject) rhs.obj);
         return *this;
     }
 
     ref& operator=(ref&& rhs) {
         if (this != &rhs) {
-            delete_auto_ref(&(jobject) obj);
-            move_auto_ref(&(jobject) obj, &(jobject) rhs.obj);
+            delete_auto_ref((jobject*) &obj);
+            move_auto_ref((jobject*) &obj, (jobject*) &rhs.obj);
         }
         return *this;
     }
     template<typename U> ref& operator=(ref<U>&& rhs) {
         T* t = (U*) nullptr;  // static assertion
-        delete_auto_ref(&(jobject) obj);
-        move_auto_ref(&(jobject) obj, &(jobject) rhs.obj);
+        delete_auto_ref((jobject*) &obj);
+        move_auto_ref((jobject*) &obj, (jobject*) &rhs.obj);
         return *this;
     }
 

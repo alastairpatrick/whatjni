@@ -29,14 +29,15 @@ int main(int argc, char **argv) {
 
     std::string classPathArg = "-Djava.class.path=" + exePath.substr(0, idx) + "/../mymodule/build/classes/java/main";
 
-    static JavaVMOption vmOptions[] = {
+    const int numVMOptions = 2;
+    static JavaVMOption vmOptions[numVMOptions] = {
         { (char*) classPathArg.c_str() },
         { (char*) "-Xcheck:jni" },
     };
 
     static JavaVMInitArgs vmArgs = {
         JNI_VERSION_1_8,
-        (int) std::size(vmOptions),
+        numVMOptions,
         vmOptions,
         false,
     };

@@ -6,8 +6,12 @@
 #include <string>
 
 #ifdef _WIN32
-#include <windows.h>
-#include <winnt.h>
+    #include <windows.h>
+    #include <winnt.h>
+#else
+    #define _GNU_SOURCE
+    #include <dlfcn.h>
+    #include <pthread.h>
 #endif
 
 namespace whatjni {
@@ -82,34 +86,54 @@ static void check_exception() {
 }
 
 static Module open_module(const string& modulePath) {
+#ifdef _WIN32
     return LoadLibrary(modulePath.c_str());
+#else
+    return dlopen(modulePath.c_str(), RTLD_NOW);
+#endif
 }
 
 static void* lookup_module_symbol(Module module, const char* name) {
+#ifdef _WIN32
     return GetProcAddress(module, name);
+#else
+    return dlsym(module, name);
+#endif
 }
 
 static int initialize_inner() {
     static const char* jvm_module_paths[] = {
-        "/bin/server/jvm.dll",
-        "/jre/bin/server/jvm.dll",
-        "/bin/client/jvm.dll",
-        "/jre/bin/client/jvm.dll",
-        "/bin/default/jvm.dll",
-        "/jre/bin/default/jvm.dll",
+        "/bin/server/",
+        "/jre/bin/server/",
+        "/bin/client/",
+        "/jre/bin/client/",
+        "/bin/default/",
+        "/jre/bin/default/",
+        "/lib/server/",
+        "/lib/client/",
+        "/lib/default/",
+        nullptr
     };
 
-    Module jvm_module = open_module("jvm.dll");
+#if defined(_WIN32)
+    const char* filename = "jvm.dll";
+#elif defined(__APPLE__)
+    const char* filename = "libjvm.dylib";
+#else
+    const char* filename = "libjvm.so";
+#endif
+
+    Module jvm_module = open_module(filename);
 
     if (!jvm_module) {
         const char* java_home = getenv("JAVA_HOME");
         if (java_home) {
-            for (int i = 0; i < std::size(jvm_module_paths); ++i) {
+            for (int i = 0; jvm_module_paths[i]; ++i) {
                 string relative_path = jvm_module_paths[i];
-#if _WIN32
+#ifdef _WIN32
                 std::replace(relative_path.begin(), relative_path.end(), '/', '\\');
 #endif
-                jvm_module = open_module(string(java_home) + relative_path);
+                jvm_module = open_module(string(java_home) + relative_path + filename);
                 if (jvm_module) {
                     break;
                 }
@@ -157,7 +181,24 @@ static void initialize() {
         g_stack_low = teb[2];
         g_stack_size = teb[1] - teb[2];
     }
-#endif  // _WIN32
+    
+#elif __APPLE__
+
+#else
+
+    pthread_attr_t attr;
+    if (pthread_getattr_np(pthread_self(), &attr) != 0) {
+        fprintf(stderr, "pthread_getattr_np failed\n");
+        abort();
+    }
+    
+    if (pthread_attr_getstack(&attr, (void**) &g_stack_low, &g_stack_size) != 0) {
+        fprintf(stderr, "pthread_attr_getstack failed\n");
+        abort();
+    }
+    
+    pthread_attr_destroy(&attr);
+#endif  // _WIN32/__APPLE__
 }
 
 void initialize_thread() {

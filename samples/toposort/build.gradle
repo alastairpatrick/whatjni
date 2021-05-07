@@ -45,3 +45,13 @@ tasks.withType(CppCompile).configureEach {
     dependsOn "genBindings"
     includes.from("$buildDir/generated/sources/jniBindings")
 }
+
+tasks.withType(LinkExecutable).configureEach {
+    linkerArgs.addAll targetPlatform.map { targetPlatform ->
+        if (targetPlatform.operatingSystem.isLinux()) {
+            return ['-ldl', '-lpthread']
+        }
+        return []
+    }
+}
+

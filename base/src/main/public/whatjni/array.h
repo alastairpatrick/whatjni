@@ -90,7 +90,7 @@ public:
         set_array_element((jarray) this, idx, TypeTraits<T>::to_base(value));
     }
     T get_data(jsize idx) {
-        return TypeTraits<T>::from_base(get_array_element<TypeTraits<T>::BaseType>((jarray) this, idx));
+        return TypeTraits<T>::from_base(get_array_element<typename TypeTraits<T>::BaseType>((jarray) this, idx));
     }
     WHATJNI_IF_PROPERTY(__declspec(property(get=get_data, put=set_data)) T data[];)
 
@@ -115,4 +115,5 @@ ref<array<R>> new_array(jsize size) {
 
 }  // namespace whatjni
 
-#endif WHATJNI_ARRAY_H
+#endif  // WHATJNI_ARRAY_H
+
