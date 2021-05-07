@@ -7,4 +7,10 @@ library {
     source.from file('googletest/googletest/src/gtest-all.cc')
     privateHeaders.from file('googletest/googletest')
     publicHeaders.from file('googletest/googletest/include')
+
+    targetMachines = [
+            machines.linux.x86_64,
+            machines.windows.x86, machines.windows.x86_64,
+            machines.macOS.x86_64
+    ]
 }

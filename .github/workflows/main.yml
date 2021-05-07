@@ -1,0 +1,39 @@
+name: Build whatjni
+on:
+  - pull_request
+  - push
+
+jobs:
+  build:
+    name: Build ${{matrix.arch}}-${{matrix.os}}-${{matrix.buildType}}
+    runs-on: ${{matrix.environment}}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows]
+        arch: [x64]
+        buildType: [Release]
+        javaVersion: [8]
+
+        include:
+          - os: windows
+            arch: x64
+            environment: windows-2019
+            buildType: Release
+            javaVersion: 8
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{matrix.javaVersion}}
+          architecture: ${{matrix.arch}}
+
+      - name: Gradle
+        run: ./gradle build
