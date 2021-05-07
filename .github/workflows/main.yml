@@ -3,6 +3,10 @@ on:
   - pull_request
   - push
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     name: Build ${{matrix.arch}}-${{matrix.os}}-${{matrix.buildType}}
@@ -38,5 +42,4 @@ jobs:
 
       - name: Gradle
         run: ./gradlew build
-          shell: bash
 
