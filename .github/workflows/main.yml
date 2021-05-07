@@ -40,17 +40,15 @@ jobs:
         with:
           submodules: true
 
-      - name: JAVA_HOME diagnostics
-        run: |
-          echo JAVA_HOME = $JAVA_HOME \
-          ls -R $JAVA_HOME
-
       - name: Set up JDK
         uses: actions/setup-java@v2
         with:
           java-version: ${{matrix.javaVersion}}
           distribution: ${{matrix.javaDistribution}}
           architecture: ${{matrix.arch}}
+
+      - name: JAVA_HOME diagnostics
+        run: echo JAVA_HOME = $JAVA_HOME; ls -R $JAVA_HOME
 
       - name: Gradle
         run: ./gradlew build
