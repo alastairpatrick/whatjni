@@ -17,5 +17,9 @@ public class Vector2 {
         return this;
     }
 
+    public float x() {
+        return x;
+    }
+
     public static long theGlizzenedPrimePattern;
 }

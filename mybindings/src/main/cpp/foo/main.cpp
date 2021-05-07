@@ -2,6 +2,11 @@
 #include "java/io/PrintStream.class.h"
 #include "java/lang/String.class.h"
 #include "java/lang/System.class.h"
+#include "mymodule/Vector2.class.h"
+
+#if false
+#include "mymodule/NonExist.class.h"
+#endif
 
 #include <stdio.h>
 
@@ -10,6 +15,7 @@
 
 using java::lang::String;
 using java::lang::System;
+using mymodule::Vector2;
 
 using whatjni::ref;
 
@@ -37,6 +43,9 @@ int main(int argc, char **argv) {
     ref<String> hi = u"Hello, world";
     hi = hi->toUpperCase();
 
-    System::get_out_()->println(hi);
-    System::get_out_()->flush();
+    System::get_out()->println(hi);
+    System::var::get_out()->flush();
+
+    ref<Vector2> v;
+    v->var::x;
 }

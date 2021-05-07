@@ -1,7 +1,7 @@
-package mymodule;
+package mymodule
 
 import java.lang.System.*
 
-fun main(args: Array<String>) {
+fun main() {
     out.println("Hello, world!")
 }

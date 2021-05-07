@@ -1,5 +1,6 @@
 package whatjni
 
+import ClassMap
 import com.google.gson.Gson
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.*
@@ -7,10 +8,7 @@ import org.gradle.api.tasks.*
 import org.gradle.work.ChangeType
 import org.gradle.work.Incremental
 import org.gradle.work.InputChanges
-import org.objectweb.asm.ClassReader
-import org.objectweb.asm.ClassReader.*
 import java.io.*
-import java.lang.Exception
 import java.lang.IllegalArgumentException
 import java.net.URLClassLoader
 import javax.inject.Inject
@@ -82,36 +80,11 @@ abstract class GenJNIBindingsTask : DefaultTask() {
             }
         }
 
-        val loader = URLClassLoader((classpath.map { it.toURL() }).toTypedArray())
-
-        val todo = ArrayList<String>(dependencies)
-        while (!todo.isEmpty()) {
-            val className = todo.removeLast()
-            val baseVisitor = BaseVisitor()
-            var classReader: ClassReader?
-
-            val generatedFile = generatedDir.file(className + ".class.h").get().asFile;
-            try {
-                classReader = ClassReader(loader.getResourceAsStream(className + ".class"))
-                classReader.accept(baseVisitor, SKIP_CODE or SKIP_DEBUG or SKIP_FRAMES)
-            } catch (e: Exception) {
-                // This is not necessarily an error; what looked like an #include directive might not be. It could be
-                // part of a multiline string or skipped by an #if directive, for example. Instead, write the error to
-                // the generated file so that, if it actually is #included, the C++ compiler will report the error
-                // and fail.
-                FileWriter(generatedFile).use {
-                    it.write("#error ${e.message}\n")
-                }
-                continue
+        URLClassLoader((classpath.map { it.toURI().toURL() }).toTypedArray()).use { loader ->
+            val classMap = ClassMap(generatedDir.get().asFile, loader)
+            for (className in dependencies) {
+                classMap.get(className)
             }
-
-            for (baseClassName in baseVisitor.baseClassNames) {
-                if (dependencies.add(baseClassName)) {
-                    todo.add(baseClassName)
-                }
-            }
-
-            generateBindings(generatedFile, classReader, className)
         }
 
         BufferedWriter(FileWriter(indexFile)).use {
@@ -125,53 +98,18 @@ abstract class GenJNIBindingsTask : DefaultTask() {
         val dependencies = sortedSetOf<String>()
         BufferedReader(FileReader(sourceFile)).use { reader ->
             while (true) {
-                val line = reader.readLine();
+                val line = reader.readLine()
                 if (line == null) {
-                    break;
+                    break
                 }
 
                 val match = importJavaRegex.matchEntire(line)
                 if (match != null) {
-                    val className = match.groupValues[1];
+                    val className = match.groupValues[1]
                     dependencies.add(className)
                 }
             }
         }
         return ArrayList(dependencies)
-    }
-
-    private fun generateBindings(generatedFile: File, classReader: ClassReader, className: String) {
-        generatedFile.parentFile.mkdirs()
-
-        BufferedWriter(FileWriter(generatedFile)).use { writer ->
-            val nameParts = escapeQualifiedName(className).split("/")
-            writeHeader(writer, nameParts)
-
-            classReader.accept(IncludeDirectiveVisitor(writer), SKIP_CODE or SKIP_DEBUG or SKIP_FRAMES)
-            writer.write("\n")
-            classReader.accept(ForwardDeclarationVisitor(writer), SKIP_CODE or SKIP_DEBUG or SKIP_FRAMES)
-            writer.write("\n")
-            classReader.accept(ClassDefinitionVisitor(writer), SKIP_CODE or SKIP_DEBUG or SKIP_FRAMES)
-
-            writeFooter(writer)
-        }
-    }
-
-    private fun writeHeader(writer: BufferedWriter, nameParts: List<String>) {
-        val sentryMacro = nameParts.joinToString(separator = "_")
-        writer.write(
-"""
-// Automatically generated; don't edit.
-            
-#ifndef ${sentryMacro}_SENTRY_H_
-#define ${sentryMacro}_SENTRY_H_
-
-#include "whatjni/array.h"
-#include "whatjni/ref.h"
-""");
-    }
-
-    private fun writeFooter(writer: BufferedWriter) {
-        writer.write("\n\n#endif\n")
     }
 }

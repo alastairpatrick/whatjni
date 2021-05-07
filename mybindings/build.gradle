@@ -13,6 +13,9 @@ repositories {
 
 configurations {
     jniBinding {
+        canBeConsumed = false
+        canBeResolved = true
+
         attributes {
             attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, "java-api"))
             attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, "classes"))
@@ -35,6 +38,7 @@ application {
 }
 
 task genBindings(type: GenJNIBindingsTask) {
+    dependsOn configurations.jniBinding
     classpath.from configurations.jniBinding.files
 }
 
