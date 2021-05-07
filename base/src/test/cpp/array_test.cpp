@@ -6,14 +6,14 @@ namespace whatjni {
 
 namespace {
 
-struct Vector2 {
+struct Point {
     static jclass get_class() {
-        static jclass clazz = find_class("mymodule/Vector2");
+        static jclass clazz = find_class("java/awt/Point");
         return clazz;
     };
 
     static std::string get_signature() {
-        return "Lmymodule/Vector2;";
+        return "Ljava/awt/Point;";
     }
 };
 
@@ -22,14 +22,14 @@ struct Vector2 {
 struct ArrayTest: testing::Test {
     ArrayTest() {
         int_array = new_array<jint>(3);
-        obj_array = new_array<ref<Vector2>>(3);
+        obj_array = new_array<ref<Point>>(3);
         nested_int_array = new_array< ref<array< jint >> >(1);
-        nested_obj_array = new_array< ref<array< ref<Vector2> >> >(1);
+        nested_obj_array = new_array< ref<array< ref<Point> >> >(1);
     }
     ref<array<jint>> int_array;
-    ref<array< ref<Vector2> >> obj_array;
+    ref<array< ref<Point> >> obj_array;
     ref<array< ref<array< jint >> >> nested_int_array;
-    ref<array< ref<array< ref<Vector2> >> >> nested_obj_array;
+    ref<array< ref<array< ref<Point> >> >> nested_obj_array;
 };
 
 TEST_F(ArrayTest, new_primitive_array) {
@@ -110,7 +110,7 @@ TEST_F(ArrayTest, new_object_array) {
 }
 
 TEST_F(ArrayTest, set_then_get_object_element) {
-    ref<Vector2> obj = (Vector2*) alloc_object(Vector2::get_class());
+    ref<Point> obj = (Point*) alloc_object(Point::get_class());
 
     for (int i = 0; i < int_array->get_length(); ++i) {
         obj_array->set_data(i, obj);

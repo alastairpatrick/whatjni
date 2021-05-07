@@ -42,7 +42,7 @@ namespace {
 
 // For ref<T>, there are some specific operations that require T be a complete type but, generally speaking, T may be an
 // incomplete type so we test with an incomplete type.
-struct Vector2;
+struct Point;
 
 struct Base {
 };
@@ -55,9 +55,9 @@ struct Derived: Base {
 struct RefTest: testing::Test {
     RefTest() {
         push_local_frame(16);
-        clazz = find_class("mymodule/Vector2");
-        obj1 = (Vector2*) alloc_object(clazz);
-        obj2 = (Vector2*) alloc_object(clazz);
+        clazz = find_class("java/awt/Point");
+        obj1 = (Point*) alloc_object(clazz);
+        obj2 = (Point*) alloc_object(clazz);
         derivedObj = (Derived*) alloc_object(clazz);
     }
 
@@ -66,13 +66,13 @@ struct RefTest: testing::Test {
     }
 
     jclass clazz;
-    Vector2* obj1;
-    Vector2* obj2;
+    Point* obj1;
+    Point* obj2;
     Derived* derivedObj;
 };
 
 TEST_F(RefTest, defaults_to_null) {
-    ref<Vector2> ref1, ref2;
+    ref<Point> ref1, ref2;
     EXPECT_FALSE(ref1);
     EXPECT_TRUE(ref1 == nullptr);
     EXPECT_TRUE(nullptr == ref1);
@@ -84,7 +84,7 @@ TEST_F(RefTest, defaults_to_null) {
 }
 
 TEST_F(RefTest, takes_ownership_of_local_ref) {
-    ref<Vector2> ref1(obj1, own_ref);
+    ref<Point> ref1(obj1, own_ref);
     EXPECT_TRUE(ref1);
     EXPECT_FALSE(ref1 == nullptr);
     EXPECT_FALSE(nullptr == ref1);
@@ -93,73 +93,73 @@ TEST_F(RefTest, takes_ownership_of_local_ref) {
 }
 
 TEST_F(RefTest, distinct_refs_to_the_same_object_are_equal) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2(obj1);
+    ref<Point> ref1(obj1);
+    ref<Point> ref2(obj1);
     EXPECT_TRUE(ref1 == ref2);
     EXPECT_FALSE(ref1 != ref2);
 }
 
 TEST_F(RefTest, refs_to_different_objects_are_not_equal) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2(obj2);
+    ref<Point> ref1(obj1);
+    ref<Point> ref2(obj2);
     EXPECT_FALSE(ref1 == ref2);
     EXPECT_TRUE(ref1 != ref2);
 }
 
 TEST_F(RefTest, can_copy_construct_refs) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2(ref1);
+    ref<Point> ref1(obj1);
+    ref<Point> ref2(ref1);
     EXPECT_TRUE(ref1);
     EXPECT_TRUE(ref1 == ref2);
 }
 
 TEST_F(RefTest, can_assign_refs) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2;
+    ref<Point> ref1(obj1);
+    ref<Point> ref2;
     ref2 = ref1;
     EXPECT_TRUE(ref1);
     EXPECT_TRUE(ref1 == ref2);
 }
 
 TEST_F(RefTest, can_assign_self) {
-    ref<Vector2> ref1(obj1);
+    ref<Point> ref1(obj1);
     ref1 = ref1;
     EXPECT_TRUE(ref1);
 }
 
 TEST_F(RefTest, can_move_construct_refs) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2(std::move(ref1));
+    ref<Point> ref1(obj1);
+    ref<Point> ref2(std::move(ref1));
     EXPECT_TRUE(ref2);
     EXPECT_FALSE(ref1);
 }
 
 TEST_F(RefTest, can_move_assign_refs) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2;
+    ref<Point> ref1(obj1);
+    ref<Point> ref2;
     ref2 = std::move(ref1);
     EXPECT_TRUE(ref2);
     EXPECT_FALSE(ref1);
 }
 
 TEST_F(RefTest, can_move_assign_self) {
-    ref<Vector2> ref1(obj1);
+    ref<Point> ref1(obj1);
     ref1 = std::move(ref1);
     EXPECT_TRUE(ref1);
 }
 
 TEST_F(RefTest, can_swap_refs) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2(obj2);
-    ref<Vector2> ref3(ref1);
-    ref<Vector2> ref4(ref2);
+    ref<Point> ref1(obj1);
+    ref<Point> ref2(obj2);
+    ref<Point> ref3(ref1);
+    ref<Point> ref4(ref2);
     std::swap(ref3, ref4);
     EXPECT_EQ(ref1, ref4);
     EXPECT_EQ(ref2, ref3);
 }
 
 TEST_F(RefTest, can_access_members) {
-    ref<Vector2> ref1(obj1, own_ref);
+    ref<Point> ref1(obj1, own_ref);
     EXPECT_EQ(obj1, ref1.operator->());
 }
 
@@ -199,11 +199,11 @@ TEST_F(RefTest, can_move_assign_refs_with_derived_type) {
 }
 
 TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_identity_equality) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2(obj2);
-    ref<Vector2> ref3;
+    ref<Point> ref1(obj1);
+    ref<Point> ref2(obj2);
+    ref<Point> ref3;
 
-    std::unordered_map<ref<Vector2>, int, by_identity<Vector2>, by_identity<Vector2>> map;
+    std::unordered_map<ref<Point>, int, by_identity<Point>, by_identity<Point>> map;
     map[ref1] = 1;
     map[ref2] = 2;
     map[ref3] = 3;
@@ -214,11 +214,17 @@ TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_identity_equalit
 }
 
 TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_value_equality) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2(obj2);
-    ref<Vector2> ref3;
+    jfieldID field = get_field_id(clazz, "x", "I");
 
-    std::unordered_map<ref<Vector2>, int, by_value<Vector2>, by_value<Vector2>> map;
+    ref<Point> ref1(obj1);
+    set_field((jobject) ref1.operator->(), field, jint(1));
+
+    ref<Point> ref2(obj2);
+    set_field((jobject) ref2.operator->(), field, jint(2));
+
+    ref<Point> ref3;
+
+    std::unordered_map<ref<Point>, int, by_value<Point>, by_value<Point>> map;
     map[ref1] = 1;
     map[ref2] = 2;
     map[ref3] = 3;
@@ -228,12 +234,18 @@ TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_value_equality) 
     ASSERT_EQ(map[ref3], 3);
 }
 
-TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_default_identity_equality) {
-    ref<Vector2> ref1(obj1);
-    ref<Vector2> ref2(obj2);
-    ref<Vector2> ref3;
+TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_default_value_equality) {
+    jfieldID field = get_field_id(clazz, "x", "I");
 
-    std::unordered_map<ref<Vector2>, int> map;
+    ref<Point> ref1(obj1);
+    set_field((jobject) ref1.operator->(), field, jint(1));
+
+    ref<Point> ref2(obj2);
+    set_field((jobject) ref2.operator->(), field, jint(2));
+
+    ref<Point> ref3;
+
+    std::unordered_map<ref<Point>, int> map;
     map[ref1] = 1;
     map[ref2] = 2;
     map[ref3] = 3;

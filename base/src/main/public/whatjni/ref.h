@@ -51,17 +51,13 @@ public:
         new_auto_ref(&(jobject) obj, (jobject) rhs.obj);
     }
 
-    ref(const char16_t* str) {
+    ref(const char16_t* str, size_t length) {
         T* t = (::java::lang::String*) nullptr;  // static assert
-        auto length = std::char_traits<char16_t>::length(str);
         jobject local = new_string((const jchar*) str, length);
         move_auto_ref(&(jobject) obj, &local);
     }
-    ref(const std::u16string& str) {
-        T* t = (::java::lang::String*) nullptr;  // static assert
-        jobject local = new_string((const jchar*) str.data(), str.length());
-        move_auto_ref(&(jobject) obj, &local);
-    }
+    ref(const char16_t* str): ref(str, std::char_traits<char16_t>::length(str)) {}
+    ref(const std::u16string& str): ref(str.data(), str.length()) {}
 
 #if WHATJNI_LANG >= 201703L
     ref(std::u16string_view str) {
@@ -142,6 +138,10 @@ template <typename T> bool operator==(std::nullptr_t, const ref<T>& rhs) {
 }
 template <typename T> bool operator!=(std::nullptr_t, const ref<T>& rhs) {
     return rhs;
+}
+
+inline ref<java::lang::String> operator ""_j(const char16_t* str, std::size_t size) {
+    return ref<java::lang::String>(str, size);
 }
 
 template<typename T> struct by_value {

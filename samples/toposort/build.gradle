@@ -25,8 +25,7 @@ configurations {
 
 dependencies {
     implementation(project(":base"))
-    jniBinding "org.ow2.asm:asm:9.1"
-    jniBinding(project(":mymodule"))
+    jniBinding "com.mahanaroad:mahana-topo-sort:1.0.0"
 }
 
 application {
