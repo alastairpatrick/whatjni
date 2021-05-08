@@ -4,6 +4,7 @@ import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Platform;
 import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.win32.StdCallLibrary;
 import com.sun.jna.win32.W32APIOptions;
@@ -36,6 +37,23 @@ public class Util {
         void FreeLibrary(Pointer module);
     }
 
+    @Structure.FieldOrder({ "fname", "fbase", "sname", "saddr" })
+    public static class DL_info extends Structure {
+        public String fname;
+        public Pointer fbase;
+        public String sname;
+        public Pointer saddr;
+    }
+
+    public interface DLLibrary extends Library {
+        DLLibrary INSTANCE = (DLLibrary) Native.load("dl", DLLibrary.class);
+
+        Pointer dlopen(String path, int flag);
+        Pointer dlsym(Pointer module, String symbol);
+        int dladdr(Pointer addr, DL_info info);
+        void dlclose(Pointer module);
+    }
+
     public static void main(String[] args) {
         System.out.println("JVM path is " + getJVMLibraryPath());
     }
@@ -43,21 +61,47 @@ public class Util {
     // By the time this function is called, the Java virtual machine shared library must have been loaded, since we're
     // running Java code. This function figures out what its path is.
     public static String getJVMLibraryPath() {
-        Pointer module = Kernel32Library.INSTANCE.LoadLibrary("jvm.dll");
-        if (module == null) {
-            throw new RuntimeException("LoadLibrary failed.");
-        }
-
-        try {
-            char[] pathChars = new char[256];
-            IntByReference pathSize = new IntByReference(256);
-            if (Kernel32Library.INSTANCE.GetModuleFileName(module, pathChars, pathSize) == 0) {
-                throw new RuntimeException("GetModuleFileName failed.");
+        String osName = System.getProperty("os.name").toLowerCase();
+        if (osName.startsWith("win")) {
+            Pointer module = Kernel32Library.INSTANCE.LoadLibrary("jvm.dll");
+            if (module == null) {
+                throw new RuntimeException("LoadLibrary failed.");
             }
 
-            return new String(pathChars, 0, pathSize.getValue());
-        } finally {
-            Kernel32Library.INSTANCE.FreeLibrary(module);
+            try {
+                char[] pathChars = new char[256];
+                IntByReference pathSize = new IntByReference(256);
+                if (Kernel32Library.INSTANCE.GetModuleFileName(module, pathChars, pathSize) == 0) {
+                    throw new RuntimeException("GetModuleFileName failed.");
+                }
+
+                return new String(pathChars, 0, pathSize.getValue());
+            } finally {
+                Kernel32Library.INSTANCE.FreeLibrary(module);
+            }
+        } else {
+            String moduleName = osName.startsWith("mac") ? "libjvm.dylib" : "libjvm.so";
+
+            Pointer module = DLLibrary.INSTANCE.dlopen(moduleName, 2 /* RTTLD_NOW */);
+            if (module == null) {
+                throw new RuntimeException("dlopen failed.");
+            }
+
+            try {
+                Pointer addr = DLLibrary.INSTANCE.dlsym(module, "JNI_CreateJavaVM");
+                if (addr == null) {
+                    throw new RuntimeException("dlsym failed.");
+                }
+
+                DL_info info = new DL_info();
+                if (DLLibrary.INSTANCE.dladdr(addr, info) == 0) {
+                    throw new RuntimeException("dladdr failed.");
+                }
+
+                return info.fname;
+            } finally {
+                DLLibrary.INSTANCE.dlclose(module);
+            }
         }
     }
 }
