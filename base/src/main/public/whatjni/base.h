@@ -84,8 +84,8 @@ public:
     JVMException& operator=(const JVMException&) = delete;
 };
 
-WHATJNI_BASE void create_vm(const JavaVMInitArgs& args);
-WHATJNI_BASE void destroy_vm();
+WHATJNI_BASE void initialize_vm(jint version, jint argc, char** argv, jboolean ignore_unrecognized = JNI_FALSE);
+WHATJNI_BASE void shutdown_vm();
 
 WHATJNI_BASE jclass find_class(const char* name);
 WHATJNI_BASE jclass get_super_class(jclass clazz);

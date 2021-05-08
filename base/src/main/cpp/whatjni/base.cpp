@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -102,49 +103,20 @@ static void* lookup_module_symbol(Module module, const char* name) {
 }
 
 static int initialize_inner() {
-    // TODO: this is absurd. There must be a better way of using the Invocation API.
-    static const char* vm_names[] = {
-        "server/",
-        "client/",
-        "default/",
-        nullptr
-    };
-    static const char* relative_paths[] = {
-        "/bin/",
-        "/jre/bin/",
-        "/lib/",
-        "/jre/lib/amd64/",
-        nullptr
-    };
-
 #if defined(_WIN32)
-    const char* filename = "jvm.dll";
+    const char* default_path = "jvm.dll";
 #elif defined(__APPLE__)
-    const char* filename = "libjvm.dylib";
+    const char* default_path = "libjvm.dylib";
 #else
-    const char* filename = "libjvm.so";
+    const char* default_path = "libjvm.so";
 #endif
 
-    Module jvm_module = open_module(filename);
+    Module jvm_module = open_module(default_path);
 
     if (!jvm_module) {
-        const char* java_home = getenv("JAVA_HOME");
-        if (java_home) {
-            for (int i = 0; relative_paths[i]; ++i) {
-                string relative_path = relative_paths[i];
-                for (int j = 0; vm_names[j]; ++j) {
-                    string vm_name = vm_names[j];
-                    string absolute_path = string(java_home) + relative_path + vm_name + filename;
-#ifdef _WIN32
-                    std::replace(absolute_path.begin(), absolute_path.end(), '/', '\\');
-#endif
-fprintf(stderr, "Trying %s\n", absolute_path.c_str());
-                    jvm_module = open_module(absolute_path);
-                    if (jvm_module) {
-                        goto found;
-                    }
-                }
-            }
+        const char* env_path = getenv("JVM_LIBRARY_PATH");
+        if (env_path) {
+            jvm_module = open_module(env_path);
         }
     }
 
@@ -153,7 +125,6 @@ fprintf(stderr, "Trying %s\n", absolute_path.c_str());
         exit(EXIT_FAILURE);
     }
 
-found:
     JNI_CreateJavaVM = (JNI_CreateJavaVMFunc) lookup_module_symbol(jvm_module, "JNI_CreateJavaVM");
 
 #ifdef _WIN32
@@ -171,7 +142,7 @@ static void initialize() {
     static int result = initialize_inner();
 }
 
-    void initialize_thread(JNIEnv* env) {
+void initialize_thread(JNIEnv* env) {
     g_env = env;
 
 #ifdef _WIN32
@@ -218,11 +189,23 @@ void initialize_thread() {
     initialize_thread(env);
 }
 
-void create_vm(const JavaVMInitArgs& args) {
+void initialize_vm(jint version, jint argc, char** argv, jboolean ignore_unrecognized) {
     initialize();
 
+    std::vector<JavaVMOption> options(argc);
+    for (int i = 0; i < argc; ++i) {
+        options[i] = { (char*) argv[i] };
+    }
+
+    const JavaVMInitArgs& init_args = {
+        version,
+        argc,
+        options.data(),
+        ignore_unrecognized,
+    };
+
     JNIEnv* env;
-    check_error(JNI_CreateJavaVM(&g_vm, (void**) &env, const_cast<JavaVMInitArgs*>(&args)));
+    check_error(JNI_CreateJavaVM(&g_vm, (void**) &env, (void*) &init_args));
     initialize_thread(env);
 
     g_object_class = find_class("java/lang/Object");
@@ -233,7 +216,7 @@ void create_vm(const JavaVMInitArgs& args) {
     g_identity_hash_code_method = get_static_method_id(g_system_class, "identityHashCode", "(Ljava/lang/Object;)I");
 }
 
-void destroy_vm() {
+void shutdown_vm() {
     check_error(g_vm->DestroyJavaVM());
     g_vm = nullptr;
 }

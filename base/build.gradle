@@ -1,3 +1,5 @@
+import whatjni.util.Util
+
 plugins {
     id 'cpp-library'
     id 'cpp-unit-test'
@@ -46,3 +48,6 @@ tasks.withType(LinkExecutable).configureEach {
     }
 }
 
+tasks.withType(RunTestExecutable).configureEach {
+    environment.put("JVM_LIBRARY_PATH", Util.JVMLibraryPath)
+}
