@@ -102,16 +102,18 @@ static void* lookup_module_symbol(Module module, const char* name) {
 }
 
 static int initialize_inner() {
-    static const char* jvm_module_paths[] = {
-        "/bin/server/",
-        "/jre/bin/server/",
-        "/bin/client/",
-        "/jre/bin/client/",
-        "/bin/default/",
-        "/jre/bin/default/",
-        "/lib/server/",
-        "/lib/client/",
-        "/lib/default/",
+    // TODO: this is absurd. There must be a better way of using the Invocation API.
+    static const char* vm_names[] = {
+        "server/",
+        "client/",
+        "default/",
+        nullptr
+    };
+    static const char* relative_paths[] = {
+        "/bin/",
+        "/jre/bin/",
+        "/lib/",
+        "jre/lib/amd64/",
         nullptr
     };
 
@@ -128,14 +130,19 @@ static int initialize_inner() {
     if (!jvm_module) {
         const char* java_home = getenv("JAVA_HOME");
         if (java_home) {
-            for (int i = 0; jvm_module_paths[i]; ++i) {
-                string relative_path = jvm_module_paths[i];
+            for (int i = 0; relative_paths[i]; ++i) {
+                string relative_path = relative_paths[i];
+                for (int j = 0; vm_names[j]; ++j) {
+                    string vm_name = vm_names[j];
+                    string absolute_path = string(java_home) + relative_path + vm_name + filename;
 #ifdef _WIN32
-                std::replace(relative_path.begin(), relative_path.end(), '/', '\\');
+                    std::replace(absolute_path.begin(), absolute_path.end(), '/', '\\');
 #endif
-                jvm_module = open_module(string(java_home) + relative_path + filename);
-                if (jvm_module) {
-                    break;
+fprintf(stderr, "Trying %s\n", absolute_path.c_str());
+                    jvm_module = open_module(absolute_path);
+                    if (jvm_module) {
+                        goto found;
+                    }
                 }
             }
         }
@@ -146,6 +153,7 @@ static int initialize_inner() {
         exit(EXIT_FAILURE);
     }
 
+found:
     JNI_CreateJavaVM = (JNI_CreateJavaVMFunc) lookup_module_symbol(jvm_module, "JNI_CreateJavaVM");
 
 #ifdef _WIN32
