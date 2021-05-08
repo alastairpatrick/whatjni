@@ -1,4 +1,4 @@
-import whatjni.util.Util
+import whatjni.util.FindVMLibrary
 
 plugins {
     id 'cpp-library'
@@ -49,5 +49,5 @@ tasks.withType(LinkExecutable).configureEach {
 }
 
 tasks.withType(RunTestExecutable).configureEach {
-    environment.put("JVM_LIBRARY_PATH", Util.JVMLibraryPath)
+    environment.put("JVM_LIBRARY_PATH", FindVMLibrary.find())
 }
