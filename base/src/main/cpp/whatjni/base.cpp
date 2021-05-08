@@ -113,7 +113,7 @@ static int initialize_inner() {
         "/bin/",
         "/jre/bin/",
         "/lib/",
-        "jre/lib/amd64/",
+        "/jre/lib/amd64/",
         nullptr
     };
 
