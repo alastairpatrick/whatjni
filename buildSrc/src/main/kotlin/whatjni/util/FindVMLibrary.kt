@@ -4,10 +4,7 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
 import com.sun.jna.win32.StdCallLibrary
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
+import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 
 @Structure.FieldOrder("version", "nOptions", "options", "ignoreUnrecognized")
@@ -49,7 +46,7 @@ fun findVMLibrary(): String {
 
     var candidates = ArrayList<Path>()
     val javaHome = System.getProperty("java.home")
-    Files.walkFileTree(Path.of(javaHome), object: SimpleFileVisitor<Path>() {
+    Files.walkFileTree(Paths.get(javaHome), object: SimpleFileVisitor<Path>() {
         override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
             if (file.fileName.toString().equals(vmLibraryName)) {
                 candidates.add(file)
