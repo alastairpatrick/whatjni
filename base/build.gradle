@@ -3,7 +3,6 @@ import whatjni.util.FindVMLibrary
 plugins {
     id 'cpp-library'
     id 'cpp-unit-test'
-    id 'visual-studio'
 }
 
 group 'org.example'

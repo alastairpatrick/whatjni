@@ -1,3 +1,16 @@
 plugins {
     id 'visual-studio'
 }
+
+subprojects {
+    tasks.withType(CppCompile).configureEach {
+        compilerArgs.addAll toolChain.map { toolChain ->
+            if (toolChain in [ Gcc, Clang ]) {
+                return ['-std=c++11']
+            } else if (toolChain in Clang ) {
+                return ['-fdeclspec']
+            }
+            return []
+        }
+    }
+}
