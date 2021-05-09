@@ -9,7 +9,7 @@ defaults:
 
 jobs:
   build:
-    name: Build ${{matrix.arch}}.${{matrix.os}}.${{matrix.toolChain}}
+    name: Build ${{matrix.arch}}_${{matrix.os}}_${{matrix.toolChain}}
     runs-on: ${{matrix.os}}
 
     strategy:
@@ -24,7 +24,7 @@ jobs:
         include:
           - os: ubuntu-20.04
             arch: x64
-            toolChain: gcc
+            toolChain: clang
             javaVersion: 8
             javaDistribution: zulu
 
