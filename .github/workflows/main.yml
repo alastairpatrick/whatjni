@@ -9,7 +9,7 @@ defaults:
 
 jobs:
   build:
-    name: Build ${{matrix.arch}}-${{matrix.os}}-${{matrix.buildType}}
+    name: Build ${{matrix.arch}}-${{matrix.os}}-${{matrix.toolChain}}
     runs-on: ${{matrix.environment}}
 
     strategy:
@@ -17,25 +17,35 @@ jobs:
       matrix:
         os: [windows, linux, mac]
         arch: [x64]
-        buildType: [Release]
+        toolChain: []
         javaVersion: [8]
         javaDistribution: [zulu]
 
         include:
           - os: windows
             arch: x64
+            toolChain: msvc
             environment: windows-2019
             javaVersion: 8
             javaDistribution: zulu
 
           - os: linux
             arch: x64
+            toolChain: gcc
+            environment: ubuntu-20.04
+            javaVersion: 8
+            javaDistribution: zulu
+
+          - os: linux
+            arch: x64
+            toolChain: clang
             environment: ubuntu-20.04
             javaVersion: 8
             javaDistribution: zulu
 
           - os: mac
             arch: x64
+            toolChain: xcode
             environment: macos-10.15
             javaVersion: 8
             javaDistribution: zulu
@@ -55,6 +65,10 @@ jobs:
 
       - name: JAVA_HOME diagnostics
         run: echo JAVA_HOME = $JAVA_HOME; ls -R $JAVA_HOME
+
+      - name: Remove GCC
+        run: sudo rm `which g++`; sudo rm `which gcc`
+        if: ${{ matrix.os == 'linux' && matrix.toolChain != 'gcc' }}
 
       - name: Gradle
         run: ./gradlew build
