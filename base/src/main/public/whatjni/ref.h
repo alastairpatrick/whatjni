@@ -3,6 +3,7 @@
 
 #include "whatjni/base.h"
 
+#include <string>
 #include <unordered_set>
 
 namespace java {
