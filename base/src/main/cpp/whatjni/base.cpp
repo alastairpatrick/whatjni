@@ -155,13 +155,19 @@ void initialize_thread(JNIEnv* env) {
         // No need for GetProcAddress; this is an inline function defined in winnt.h.
         const char** teb = (const char**) NtCurrentTeb();
 
-        // This makes assumptions about the layout of the WIN32 _thread Information Block, which could change. This code will
-        // only run on versions prios to Windows 8 though, so such a change seems very unlikely.
+        // This makes assumptions about the layout of the WIN32 Thread Information Block, which could change. This code
+        // will only run on versions prior to Windows 8 though, so such a change seems very unlikely. At the time of
+        // writing, this actually still works on NT based Windows up to and including Windows 10 but no reason to use it
+        // from Windows 8 onward.
         g_stack_low = teb[2];
         g_stack_size = teb[1] - teb[2];
     }
     
 #elif __APPLE__
+
+    pthread_t self = pthread_self();
+    g_stack_low = pthread_get_stackaddr_np(self);
+    g_stack_size = pthread_get_stacksize_np(self);
 
 #else
 
