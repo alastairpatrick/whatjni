@@ -3,14 +3,17 @@ plugins {
 }
 
 subprojects {
+    toolChain = Clang()
+
     tasks.withType(CppCompile).configureEach {
         compilerArgs.addAll toolChain.map { toolChain ->
-            if (toolChain in [ Gcc, Clang ]) {
+            if (toolChain instanceof Gcc) {
                 return ['-std=c++11']
-            } else if (toolChain in Clang ) {
-                return ['-fdeclspec']
+            } else if (toolChain instanceof Clang) {
+                return ['-std=c++11', '-fdeclspec']
             }
             return []
         }
     }
 }
+
