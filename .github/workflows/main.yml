@@ -7,16 +7,16 @@ defaults:
   run:
     shell: bash
 
+env:
+  enironmentMap: '{ windows: "windows-2019", linux: "ubuntu-20.04", macos: "macos-10.15" }'
+  gradleOSMap: '{ windows: "Windows", linux: "Linux", macos: "MacOS" }'
+  gradleArchMap: '{ x64: "X86-64", x86: "X86" }'
+
 jobs:
   build:
     env:
-      enironmentMap: '{ windows: "windows-2019", linux: "ubuntu-20.04", macos: "macos-10.15" }'
       environment: ${{ fromJson(env.enironmentMap)[matrix.os] }}
-
-      gradleOSMap: '{ windows: "Windows", linux: "Linux", macos: "MacOS" }'
       gradleOS: ${{ fromJson(env.gradleOSMap)[matrix.os] }}
-
-      gradleArchMap: '{ x64: "X86-64", x86: "X86" }'
       gradleArch: ${{ fromJson(env.gradleOSMap)[matrix.os] }}
 
     name: Build ${{matrix.arch}}_${{matrix.os}}_${{matrix.toolChain}}_${{matrix.javaDistribution}}JDK${{matrix.javaVersion}}
