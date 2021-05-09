@@ -17,7 +17,6 @@ jobs:
       matrix:
         os: [windows, linux, mac]
         arch: [x64]
-        toolChain: []
         javaVersion: [8]
         javaDistribution: [zulu]
 
