@@ -3,8 +3,6 @@ plugins {
 }
 
 subprojects {
-    toolChain = Clang()
-
     tasks.withType(CppCompile).configureEach {
         compilerArgs.addAll toolChain.map { toolChain ->
             if (toolChain instanceof Gcc) {
