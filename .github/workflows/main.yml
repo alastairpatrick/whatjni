@@ -9,13 +9,23 @@ defaults:
 
 jobs:
   build:
-    name: Build ${{matrix.arch}}_${{matrix.os}}_${{matrix.toolChain}}_${{matrix.javaDistribution}}Jdk${{matrix.javaVersion}}
-    runs-on: ${{matrix.os}}
+    env:
+      enironmentMap: '{ windows: "windows-2019", linux: "ubuntu-20.04", macos: "macos-10.15" }'
+      environment: ${{ fromJson(env.enironmentMap)[matrix.os] }}
+
+      gradleOSMap: '{ windows: "Windows", linux: "Linux", macos: "MacOS" }'
+      gradleOS: ${{ fromJson(env.gradleOSMap)[matrix.os] }}
+
+      gradleArchMap: '{ x64: "X86-64", x86: "X86" }'
+      gradleArch: ${{ fromJson(env.gradleOSMap)[matrix.os] }}
+
+    name: Build ${{matrix.arch}}_${{matrix.os}}_${{matrix.toolChain}}_${{matrix.javaDistribution}}JDK${{matrix.javaVersion}}
+    runs-on: ${{env.environment}}
 
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2019, ubuntu-20.04, macos-10.15]
+        os: [windows, linux, macos]
         arch: [x64]
         toolChain: [default]
         javaVersion: [8, 16]
@@ -41,13 +51,15 @@ jobs:
           distribution: ${{matrix.javaDistribution}}
           architecture: ${{matrix.arch}}
 
-      - name: JAVA_HOME diagnostics
-        run: echo JAVA_HOME = $JAVA_HOME; ls -R $JAVA_HOME
+      - name: List JDK files
+        run: ls -R $JAVA_HOME
 
       - name: Remove GCC
         run: sudo rm `which g++`; sudo rm `which gcc`
         if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.toolChain != 'gcc' }}
 
-      - name: Gradle
-        run: ./gradlew build
+      - name: List Gradle tasks
+        run: ./gradlew tasks
 
+      - name: Run tests
+        run: ./gradlew runTest${{ env.gradleOS }}${{ env.gradleArch }}
