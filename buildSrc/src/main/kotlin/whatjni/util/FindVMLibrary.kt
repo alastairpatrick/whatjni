@@ -1,8 +1,6 @@
 package whatjni.util
 
-import com.sun.jna.Native
-import com.sun.jna.Pointer
-import com.sun.jna.Structure
+import com.sun.jna.*
 import com.sun.jna.win32.StdCallLibrary
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
@@ -15,13 +13,19 @@ class JavaVMInitArgs: Structure() {
     @JvmField var ignoreUnrecognized: Int = 0
 }
 
-interface JVMLibrary : StdCallLibrary {
+interface JVMLibrary : Library {
     fun JNI_GetDefaultJavaVMInitArgs(args: JavaVMInitArgs?): Int
+}
+
+interface JVMLibraryWin32 : JVMLibrary, StdCallLibrary {
 }
 
 fun isWorkingVMLibrary(file: Path): Boolean {
     try {
-        val jvmLibrary = Native.load(file.toString(), JVMLibrary::class.java) as JVMLibrary
+        val jvmLibrary = if (Platform.getOSType() == Platform.WINDOWS)
+            Native.load(file.toString(), JVMLibraryWin32::class.java)
+        else
+            Native.load(file.toString(), JVMLibrary::class.java) as JVMLibrary
 
         val args = JavaVMInitArgs()
         args.version = 0x10002  // JNI version 1.2
@@ -36,10 +40,9 @@ fun isWorkingVMLibrary(file: Path): Boolean {
 }
 
 fun findVMLibrary(): String {
-    val osName = System.getProperty("os.name").toLowerCase()
-    val vmLibraryName = if (osName.startsWith("win"))
+    val vmLibraryName = if (Platform.getOSType() == Platform.WINDOWS)
         "jvm.dll"
-    else if (osName.startsWith("mac"))
+    else if (Platform.getOSType() == Platform.MAC)
         "libjvm.dylib"
     else
         "libjvm.so"
