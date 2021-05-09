@@ -9,7 +9,7 @@ defaults:
 
 jobs:
   build:
-    name: Build ${{matrix.arch}}_${{matrix.os}}_${{matrix.toolChain}}
+    name: Build ${{matrix.arch}}_${{matrix.os}}_${{matrix.toolChain}}_${{matrix.javaDistribution}}Jdk${{matrix.javaVersion}}
     runs-on: ${{matrix.os}}
 
     strategy:
@@ -18,7 +18,7 @@ jobs:
         os: [windows-2019, ubuntu-20.04, macos-10.15]
         arch: [x64]
         toolChain: [default]
-        javaVersion: [16]
+        javaVersion: [8, 16]
         javaDistribution: [adopt, zulu]
 
         include:
@@ -26,18 +26,6 @@ jobs:
             arch: x64
             toolChain: clang
             javaVersion: 16
-            javaDistribution: zulu
-
-          - os: ubuntu-20.04
-            arch: x64
-            toolChain: default
-            javaVersion: 8
-            javaDistribution: adopt
-
-          - os: ubuntu-20.04
-            arch: x64
-            toolChain: default
-            javaVersion: 8
             javaDistribution: zulu
 
     steps:
