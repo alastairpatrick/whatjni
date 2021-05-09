@@ -166,7 +166,7 @@ void initialize_thread(JNIEnv* env) {
 #elif __APPLE__
 
     pthread_t self = pthread_self();
-    g_stack_low = pthread_get_stackaddr_np(self);
+    g_stack_low = (const char*) pthread_get_stackaddr_np(self);
     g_stack_size = pthread_get_stacksize_np(self);
 
 #else
