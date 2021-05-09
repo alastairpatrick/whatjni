@@ -41,6 +41,12 @@ jobs:
             javaDistribution: zulu
 
     steps:
+      - name: clang version
+        run: clang++ --version
+
+      - name: GCC version
+        run: gcc --version
+
       - name: Checkout source code
         uses: actions/checkout@v2
         with:
