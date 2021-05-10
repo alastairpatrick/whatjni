@@ -30,6 +30,7 @@ jobs:
 
     steps:
       - name: Test ${{ toJSON(env.myMap) }}
+        run: echo ${{ env.myMap.foo }}
         env:
           myMap: |
             ${{ fromJSON("{
