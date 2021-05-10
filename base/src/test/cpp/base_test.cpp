@@ -48,7 +48,7 @@ TEST_F(BaseTest, throw_and_catch_exception) {
     bool fired = false;
     try {
         throw_new_exception(clazz, "Oops");
-    } catch (JVMException) {
+    } catch (jvm_exception) {
         fired = true;
         EXPECT_NE(current_exception(), nullptr);
         clear_exception();

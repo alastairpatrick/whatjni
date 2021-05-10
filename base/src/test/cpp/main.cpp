@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
 
     try {
         return RUN_ALL_TESTS();
-    } catch (whatjni::JVMException) {
+    } catch (whatjni::jvm_exception) {
         whatjni::print_exception();
         throw;
     }

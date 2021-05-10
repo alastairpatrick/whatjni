@@ -62,26 +62,26 @@ X(jobject)                            \
 namespace whatjni {
 
 // For errors returned by Java Invocation API.
-class WHATJNI_BASE JVMError {
+class WHATJNI_BASE jvm_error {
     jint error_;
 public:
-    explicit JVMError(jint error);
-    JVMError(const JVMError&);
-    ~JVMError();
+    explicit jvm_error(jint error);
+    jvm_error(const jvm_error&);
+    ~jvm_error();
 
     jint error() { return error_; }
 
-    JVMError& operator=(const JVMError&) = delete;
+    jvm_error& operator=(const jvm_error&) = delete;
 };
 
 // Thrown when JVM exception detected.
-class WHATJNI_BASE JVMException {
+class WHATJNI_BASE jvm_exception {
 public:
-    JVMException();
-    JVMException(const JVMException&);
-    ~JVMException();
+    jvm_exception();
+    jvm_exception(const jvm_exception&);
+    ~jvm_exception();
 
-    JVMException& operator=(const JVMException&) = delete;
+    jvm_exception& operator=(const jvm_exception&) = delete;
 };
 
 WHATJNI_BASE bool load_vm_module(const char* path);

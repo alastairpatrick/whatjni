@@ -49,41 +49,41 @@ static jmethodID g_hash_code_method;
 static jclass g_system_class;
 static jmethodID g_identity_hash_code_method;
 
-JVMError::JVMError(jint error): error_(error) {
+jvm_error::jvm_error(jint error): error_(error) {
 }
 
-JVMError::JVMError(const JVMError& rhs): error_(rhs.error_) {
+jvm_error::jvm_error(const jvm_error& rhs): error_(rhs.error_) {
 }
 
-JVMError::~JVMError() {
+jvm_error::~jvm_error() {
 }
 
-JVMException::JVMException() {
+jvm_exception::jvm_exception() {
 }
 
-JVMException::JVMException(const JVMException& rhs) {
+jvm_exception::jvm_exception(const jvm_exception& rhs) {
 }
 
-JVMException::~JVMException() {
+jvm_exception::~jvm_exception() {
 }
 
 static void check_error(int error_code) {
     if (error_code != JNI_OK) {
-        throw JVMError(error_code);
+        throw jvm_error(error_code);
     }
 }
 
 template <typename T>
 static T check_exception(T result) {
     if (g_env->ExceptionCheck()) {
-        throw JVMException();
+        throw jvm_exception();
     }
     return result;
 }
 
 static void check_exception() {
     if (g_env->ExceptionCheck()) {
-        throw JVMException();
+        throw jvm_exception();
     }
 }
 
@@ -375,7 +375,7 @@ void delete_auto_ref(jobject* refref) {
 
 void throw_new_exception(jclass clazz, const char* message) {
     g_env->ThrowNew(clazz, message);
-    throw JVMException();
+    throw jvm_exception();
 }
 
 jobject current_exception() {
@@ -1133,7 +1133,7 @@ void* get_primitive_array_critical(jarray array, jboolean* is_copy) {
     // Must not call check_exception, ExceptionOccurred or any other JNI function before releasing aside from nesting
     // more getPrimitiveArrayCritical/releasePrimitiveArrayCritical pairs.
     if (!ptr) {
-        throw JVMException();
+        throw jvm_exception();
     }
 
     return ptr;

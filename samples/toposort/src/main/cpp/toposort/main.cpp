@@ -11,6 +11,8 @@
 #include "mymodule/NonExistent.class.h"
 #endif
 
+#include <cstdlib>
+
 using java::awt::Point;
 using java::lang::String;
 using java::lang::System;
@@ -18,7 +20,8 @@ using java::lang::System;
 using namespace whatjni;
 
 int main(int argc, const char **argv) {
-    whatjni::initialize_vm(JNI_VERSION_1_8, argc, argv);
+    whatjni::load_vm_module(getenv("JVM_LIBRARY_PATH"));
+    whatjni::initialize_vm(JNI_VERSION_1_8, argc - 1, argv + 1);
 
     System::get_out()->println(u"Enter some integers then 'done' when finished:"_j);
 }
