@@ -29,7 +29,7 @@ jobs:
             javaDistribution: zulu
 
     steps:
-      - name Test ${{ toJSON(env.myMap) }}
+      - name: Test ${{ toJSON(env.myMap) }}
         env:
           myMap: |
             ${{ fromJSON("{
