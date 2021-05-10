@@ -17,7 +17,7 @@ using java::lang::System;
 
 using namespace whatjni;
 
-int main(int argc, char **argv) {
+int main(int argc, const char **argv) {
     whatjni::initialize_vm(JNI_VERSION_1_8, argc, argv);
 
     System::get_out()->println(u"Enter some integers then 'done' when finished:"_j);
