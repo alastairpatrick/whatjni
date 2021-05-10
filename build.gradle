@@ -17,15 +17,9 @@ subprojects {
     tasks.withType(LinkExecutable).configureEach {
         linkerArgs.addAll targetPlatform.map { targetPlatform ->
             if (targetPlatform.operatingSystem.isMacOsX()) {
-                return toolChain.map { toolChain ->
-                    if (toolChain instanceof Clang) {
-                        // Workaround
-                        // https://github.com/eclipse-openj9/openj9/issues/10416
-                        return ['-pagezero_size', '0x1000']
-                    } else {
-                        return []
-                    }
-                }
+                // Workaround
+                // https://github.com/eclipse-openj9/openj9/issues/10416
+                return ['-pagezero_size', '0x1000']
             } else {
                 return []
             }
