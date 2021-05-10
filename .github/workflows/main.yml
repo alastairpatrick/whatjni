@@ -9,7 +9,7 @@ defaults:
 
 jobs:
   build:
-    name: Build ${{matrix.arch}} ${{matrix.os}} ${{matrix.toolChain}} ${{matrix.javaDistribution}}JDK${{matrix.javaVersion}}
+    name: ${{matrix.arch}} ${{matrix.os}} ${{matrix.toolChain}} ${{matrix.javaDistribution}}JDK${{matrix.javaVersion}}
     runs-on: ${{matrix.os}}
 
     strategy:
@@ -55,7 +55,7 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.toolChain != 'gcc' }}
 
       - name: Build
-        run: ./gradlew run${{ env[matrix.os] }}${{ env[matrix.arch] }}
+        run: ./gradlew runTest${{ env[matrix.os] }}${{ env[matrix.arch] }}
         env:
           windows-2019: Windows
           ubuntu-20.04: Linux
