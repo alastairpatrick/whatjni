@@ -34,7 +34,7 @@ jobs:
         env:
           myMap: |
             ${{ fromJSON("{
-              "foo": "bar"
+              'foo': 'bar'
             }") }}
 
       - name: Checkout source code
