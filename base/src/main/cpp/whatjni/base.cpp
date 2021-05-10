@@ -33,6 +33,7 @@ typedef void* Module;
 
 #endif
 
+static Module g_vm_module;
 static JavaVM* g_vm;
 static thread_local JNIEnv* g_env;
 static thread_local const char* g_stack_low;
@@ -102,35 +103,37 @@ static void* lookup_module_symbol(Module module, const char* name) {
 #endif
 }
 
-static int initialize_inner() {
-#if defined(_WIN32)
-    const char* default_path = "jvm.dll";
-#elif defined(__APPLE__)
-    const char* default_path = "libjvm.dylib";
-#else
-    const char* default_path = "libjvm.so";
-#endif
-
-    Module jvm_module = open_module(default_path);
-
-    if (!jvm_module) {
-        const char* env_path = getenv("JVM_LIBRARY_PATH");
-        if (env_path) {
-            jvm_module = open_module(env_path);
-        }
+bool load_vm_module(const char* path) {
+    if (g_vm_module) {
+        return true;
     }
 
-    if (!jvm_module) {
+    if (!path) {
+#if defined(_WIN32)
+        path = "jvm.dll";
+#elif defined(__APPLE__)
+        path = "libjvm.dylib";
+#else
+        path = "libjvm.so";
+#endif
+    }
+
+    g_vm_module = open_module(path);
+    return g_vm_module;
+}
+
+static int initialize_inner() {
+    if (!load_vm_module(nullptr)) {
         fprintf(stderr, "Could not load JVM module.\n");
         exit(EXIT_FAILURE);
     }
 
-    JNI_CreateJavaVM = (JNI_CreateJavaVMFunc) lookup_module_symbol(jvm_module, "JNI_CreateJavaVM");
+    JNI_CreateJavaVM = (JNI_CreateJavaVMFunc) lookup_module_symbol(g_vm_module, "JNI_CreateJavaVM");
 
 #ifdef _WIN32
     Module kernel32_module = open_module("kernel32.dll");
     GetCurrentThreadStackLimits = (GetCurrentThreadStackLimitsFunc) lookup_module_symbol(kernel32_module,
-                                                                                        "GetCurrentThreadStackLimits");
+                                                                                         "GetCurrentThreadStackLimits");
 #endif
 
     return 0;

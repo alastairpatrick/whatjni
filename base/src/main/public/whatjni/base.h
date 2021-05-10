@@ -84,6 +84,7 @@ public:
     JVMException& operator=(const JVMException&) = delete;
 };
 
+WHATJNI_BASE bool load_vm_module(const char* path);
 WHATJNI_BASE void initialize_vm(jint version, jint argc, const char** argv, jboolean ignore_unrecognized = JNI_FALSE);
 WHATJNI_BASE void shutdown_vm();
 

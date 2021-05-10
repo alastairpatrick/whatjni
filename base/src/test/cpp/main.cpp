@@ -4,6 +4,8 @@
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
 
+    whatjni::load_vm_module(getenv("JVM_LIBRARY_PATH"));
+
     const jint num_vm_args = 1;
     static const char* vm_args[num_vm_args] = {
         "-Xcheck:jni"
