@@ -67,7 +67,6 @@ fun findVMLibrary(): String {
         }
     }
 
-    println("Candidates $candidates")
     for (candidate in candidates) {
         if (isWorkingVMLibrary(candidate)) {
             return candidate.toString()
