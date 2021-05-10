@@ -29,6 +29,13 @@ jobs:
             javaDistribution: zulu
 
     steps:
+      - name Test ${{ toJSON(env.myMap) }}
+        env:
+          myMap: |
+            ${{ fromJSON("{
+              "foo": "bar"
+            }") }}
+
       - name: Checkout source code
         uses: actions/checkout@v2
         with:
@@ -54,9 +61,10 @@ jobs:
       - name: Build ${{ env.osMap[matrix.os] }} ${{ env.archMap[matrix.arch] }}
         run: ./gradlew run${{ env.osMap[matrix.os] }}${{ env.archMap[matrix.arch] }}
         env:
-          #osMap: '${{ fromJSON(''{"windows-2019": "Windows", "ubuntu-20.04": "Linux", "macos-10.15": "MacOS"}'') }}'
-          osMap:
-            windows-2019: Windows
-            ubuntu-20.04: Linux
-            macos-10.15: MacOS
+          osMap: |
+            ${{ fromJSON("{
+              'windows-2019': 'Windows',
+              'ubuntu-20.04': 'Linux',
+              'macos-10.15': 'MacOS'
+            }") }}'
           archMap: '${{ fromJSON(''{"windows-2019": "Windows", "ubuntu-20.04": "Linux", "macos-10.15": "MacOS"}'') }}'
