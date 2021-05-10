@@ -11,6 +11,11 @@ jobs:
   build:
     name: Build ${{matrix.arch}} ${{matrix.os}} ${{matrix.toolChain}} ${{matrix.javaDistribution}}JDK${{matrix.javaVersion}}
     runs-on: ${{matrix.os}}
+    env:
+      myMap2: |
+        ${{ fromJSON('{
+          "foo": "bar"
+        }') }}
 
     strategy:
       fail-fast: false
@@ -29,13 +34,19 @@ jobs:
             javaDistribution: zulu
 
     steps:
-      - name: Test ${{ toJSON(env.myMap) }}
-        run: echo ${{ env.myMap.foo }}
+      - name: Test 1 ${{ toJSON(env.myMap['foo']) }}
+        run: echo ${{ env.myMap['foo'] }}
         env:
           myMap: |
             ${{ fromJSON('{
               "foo": "bar"
             }') }}
+
+      - name: Test 2 ${{ toJSON(env.myMap2['foo']) }}
+        run: echo ${{ env.myMap2['foo'] }}
+
+      - name: Test 3 ${{ toJSON(env.myMap2.foo) }}
+        run: echo ${{ env.myMap2.foo }}
 
       - name: Checkout source code
         uses: actions/checkout@v2
@@ -59,14 +70,14 @@ jobs:
       - name: List Gradle tasks
         run: ./gradlew tasks
 
-      - name: Build ${{ env.osMap[matrix.os] }} ${{ env.archMap[matrix.arch] }}
+      - name: Build
         run: ./gradlew run${{ env.osMap[matrix.os] }}${{ env.archMap[matrix.arch] }}
         env:
           osMap: |
             ${{ fromJSON('{
               "windows-2019": "Windows",
               "ubuntu-20.04": "Linux",
-              "macos-10.15": "MacOS"
+              "macos-10.15": "Macos"
             }') }}
           archMap: |
             ${{ fromJSON('{
