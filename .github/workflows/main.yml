@@ -9,7 +9,7 @@ defaults:
 
 jobs:
   build:
-    name: ${{matrix.arch}} ${{matrix.os}} ${{matrix.toolChain}} ${{matrix.javaDistribution}}JDK${{matrix.javaVersion}}
+    name: ${{matrix.arch}} ${{matrix.os}} ${{matrix.toolChain}} JDK${{matrix.javaVersion}}/${{matrix.javaVM}}
     runs-on: ${{matrix.os}}
 
     strategy:
@@ -19,20 +19,26 @@ jobs:
         arch: [x64]
         toolChain: [default]
         javaVersion: [16]
-        javaDistribution: [zulu]
+        javaVM: [hotspot]
 
         include:
           - os: ubuntu-20.04
             arch: x64
-            toolChain: clang
+            toolChain: gcc
             javaVersion: 16
-            javaDistribution: zulu
+            javaVM: hotspot
+
+          - os: ubuntu-18.04
+            arch: x64
+            toolChain: default
+            javaVersion: 8
+            javaVM: hotspot
 
           - os: windows-2019
             arch: x86
             toolChain: default
             javaVersion: 8
-            javaDistribution: zulu
+            javaVM: hotspot
 
     steps:
       - name: Checkout source code
@@ -41,21 +47,21 @@ jobs:
           submodules: true
 
       - name: Set up JDK
-        uses: actions/setup-java@v2
+        uses: AdoptOpenJDK/install-jdk@v1
         with:
-          java-version: ${{matrix.javaVersion}}
-          distribution: ${{matrix.javaDistribution}}
-          architecture: ${{matrix.arch}}
+          version: ${{ matrix.javaVersion }}
+          architecture: ${{ matrix.arch }}
+          impl: ${{ matrix.javaVM }}
 
-      - name: JAVA_HOME diagnostics
-        run: echo JAVA_HOME = $JAVA_HOME; ls -R $JAVA_HOME
+      - name: List JAVA_HOME
+        run: ls -R $JAVA_HOME
 
-      - name: Remove GCC
+      - name: Delete gcc tool chain
         run: sudo rm `which g++`; sudo rm `which gcc`
-        if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.toolChain != 'gcc' }}
+        if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.toolChain == 'default' }}
 
       - name: Build
-        run: ./gradlew runTest${{ env[matrix.os] }}${{ env[matrix.arch] }}
+        run: ./gradlew runTest${{ env[matrix.os] }}${{ env[matrix.arch] }} linkRelease${{ env[matrix.os] }}${{ env[matrix.arch] }} --no-daemon
         env:
           windows-2019: Windows
           ubuntu-20.04: Linux
