@@ -195,7 +195,7 @@ void initialize_thread() {
     initialize_thread(env);
 }
 
-void initialize_vm(jint version, jint argc, char** argv, jboolean ignore_unrecognized) {
+void initialize_vm(jint version, jint argc, const char** argv, jboolean ignore_unrecognized) {
     initialize();
 
     std::vector<JavaVMOption> options(argc);
