@@ -11,11 +11,6 @@ jobs:
   build:
     name: Build ${{matrix.arch}} ${{matrix.os}} ${{matrix.toolChain}} ${{matrix.javaDistribution}}JDK${{matrix.javaVersion}}
     runs-on: ${{matrix.os}}
-    env:
-      myMap2: |
-        ${{ fromJSON('{
-          "foo": "bar"
-        }') }}
 
     strategy:
       fail-fast: false
@@ -34,19 +29,12 @@ jobs:
             javaDistribution: zulu
 
     steps:
-      - name: Test 1 ${{ toJSON(env.myMap['foo']) }}
-        run: echo ${{ env.myMap['foo'] }}
+      - name: Test 1 ${{ env[matrix.os] }}
+        run: echo ${{ env[matrix.os] }}
         env:
-          myMap: |
-            ${{ fromJSON('{
-              "foo": "bar"
-            }') }}
-
-      - name: Test 2 ${{ toJSON(env.myMap2['foo']) }}
-        run: echo ${{ env.myMap2['foo'] }}
-
-      - name: Test 3 ${{ toJSON(env.myMap2.foo) }}
-        run: echo ${{ env.myMap2.foo }}
+          windows-2019: Windows
+          ubuntu-20.04: Linux
+          macos-10.15: Macos
 
       - name: Checkout source code
         uses: actions/checkout@v2
@@ -67,20 +55,11 @@ jobs:
         run: sudo rm `which g++`; sudo rm `which gcc`
         if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.toolChain != 'gcc' }}
 
-      - name: List Gradle tasks
-        run: ./gradlew tasks
-
       - name: Build
-        run: ./gradlew run${{ env.osMap[matrix.os] }}${{ env.archMap[matrix.arch] }}
+        run: ./gradlew run${{ env[matrix.os] }}${{ env[matrix.arch] }}
         env:
-          osMap: |
-            ${{ fromJSON('{
-              "windows-2019": "Windows",
-              "ubuntu-20.04": "Linux",
-              "macos-10.15": "Macos"
-            }') }}
-          archMap: |
-            ${{ fromJSON('{
-              "x64": "X86-64",
-              "x86": "X86"
-            }') }}
+          windows-2019: Windows
+          ubuntu-20.04: Linux
+          macos-10.15: Macos
+          x64: X86-64
+          x86: X86
