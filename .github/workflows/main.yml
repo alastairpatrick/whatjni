@@ -18,8 +18,8 @@ jobs:
         os: [windows-2019, ubuntu-20.04, macos-10.15]
         arch: [x64]
         toolChain: [default]
-        javaVersion: [16]
-        javaVM: [hotspot]
+        javaVersion: [8, 16]
+        javaVM: [hotspot, openj9]
 
         include:
           - os: ubuntu-20.04
@@ -35,10 +35,16 @@ jobs:
             javaVM: hotspot
 
           - os: windows-2019
-            arch: x86
+            arch: x32
             toolChain: default
             javaVersion: 8
             javaVM: hotspot
+
+          - os: windows-2019
+            arch: x32
+            toolChain: default
+            javaVersion: 8
+            javaVM: openj9
 
     steps:
       - name: Checkout source code
@@ -61,10 +67,11 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.toolChain == 'default' }}
 
       - name: Build
-        run: ./gradlew runTest${{ env[matrix.os] }}${{ env[matrix.arch] }} linkRelease${{ env[matrix.os] }}${{ env[matrix.arch] }} --no-daemon
+        run: ./gradlew runTest${{ env[matrix.os] }}${{ env[matrix.arch] }} linkRelease${{ env[matrix.os] }}${{ env[matrix.arch] }}
         env:
           windows-2019: Windows
+          ubuntu-18.04: Linux
           ubuntu-20.04: Linux
           macos-10.15: Macos
           x64: X86-64
-          x86: X86
+          x32: X86
