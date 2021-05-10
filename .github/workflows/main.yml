@@ -28,14 +28,13 @@ jobs:
             javaVersion: 16
             javaDistribution: zulu
 
-    steps:
-      - name: Test 1 ${{ env[matrix.os] }}
-        run: echo ${{ env[matrix.os] }}
-        env:
-          windows-2019: Windows
-          ubuntu-20.04: Linux
-          macos-10.15: Macos
+          - os: windows-2019
+            arch: x86
+            toolChain: default
+            javaVersion: 8
+            javaDistribution: zulu
 
+    steps:
       - name: Checkout source code
         uses: actions/checkout@v2
         with:
