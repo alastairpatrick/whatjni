@@ -15,7 +15,7 @@ subprojects {
     }
 
     tasks.withType(LinkExecutable).configureEach {
-        linkerArgs.addAll targetPlatform.map { targetPlatform ->
+        linkerArgs.addAll targetPlatform.map { targetPlatform ->  // check
             if (targetPlatform.operatingSystem.isMacOsX()) {
                 // Workaround
                 // https://github.com/eclipse-openj9/openj9/issues/10416
