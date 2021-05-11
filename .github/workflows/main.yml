@@ -67,8 +67,7 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu') && matrix.toolChain == 'default' }}
 
       - name: Build
-        run: <
-          ./gradlew linkRelease${{ env[matrix.os] }}${{ env[matrix.arch] }} runTest${{ env[matrix.os] }}${{ env[matrix.arch] }}
+        run: ./gradlew linkDebug${{ env[matrix.os] }}${{ env[matrix.arch] }} linkRelease${{ env[matrix.os] }}${{ env[matrix.arch] }} runTest${{ env[matrix.os] }}${{ env[matrix.arch] }}
         env:
           windows-2019: Windows
           ubuntu-18.04: Linux
