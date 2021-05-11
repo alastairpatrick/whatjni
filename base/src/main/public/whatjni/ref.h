@@ -52,16 +52,23 @@ public:
         new_auto_ref((jobject*) &obj, (jobject) rhs.obj);
     }
 
-    ref(const char16_t* str, size_t length) {
+    ref(const char* str, size_t length) {
         T* t = (::java::lang::String*) nullptr;  // static assert
-        jobject local = new_string((const jchar*) str, length);
+
+        // Not using new_string_utf because it doesn't take a length argument. Could potentially use it in the common
+        // case of the input string having no internal null characters though, if there's a performance issue. The JNI
+        // spec says JNI uses some kind of "modified UTF8" so research what exactly that means first.
+        std::u16string str16;
+        utf8::utf8to16(str, str + length, std::back_inserter(str16));
+        jobject local = new_string((const jchar*) str16.data(), str16.length());
+
         move_auto_ref((jobject*) &obj, &local);
     }
-    ref(const char16_t* str): ref(str, std::char_traits<char16_t>::length(str)) {}
-    ref(const std::u16string& str): ref(str.data(), str.length()) {}
+    ref(const char* str): ref(str, std::char_traits<char>::length(str)) {}
+    ref(const std::string& str): ref(str.data(), str.length()) {}
 
 #if WHATJNI_LANG >= 201703L
-    ref(std::u16string_view str) {
+    ref(std::string_view str) {
         T* t = (::java::lang::String*) nullptr;  // static assert
         jobject local = new_string((const jchar*) str.data(), str.length());
         move_auto_ref((jobject*) &obj, &local);
@@ -141,7 +148,7 @@ template <typename T> bool operator!=(std::nullptr_t, const ref<T>& rhs) {
     return rhs;
 }
 
-inline ref<java::lang::String> operator ""_j(const char16_t* str, std::size_t size) {
+inline ref<java::lang::String> operator ""_j(const char* str, std::size_t size) {
     return ref<java::lang::String>(str, size);
 }
 

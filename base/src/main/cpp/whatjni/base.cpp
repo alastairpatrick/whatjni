@@ -1,4 +1,5 @@
 #include "whatjni/base.h"
+#include "utf8.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -81,11 +82,12 @@ std::string jvm_exception::get_message() const {
     static jmethodID method = get_method_id(clazz, "getMessage", "()Ljava/lang/String;");
     jstring message = (jstring) call_method<jobject>(exception_, method);
     if (message) {
-        jsize length = get_string_utf_length(message);
+        jsize length = get_string_length(message);
         jboolean is_copy;
-        const char* chars = get_string_utf_chars(message, &is_copy);
-        std::string result = std::string(chars, length);
-        release_string_utf_chars(message, chars);
+        const char16_t* chars = (const char16_t*) get_string_chars(message, &is_copy);
+        std::string result;
+        utf8::utf16to8(chars, chars + length, std::back_inserter(result));
+        release_string_chars(message, (const jchar*) chars);
         return result;
     } else {
         return "null";
@@ -884,19 +886,6 @@ const jchar* get_string_chars(jstring str, jboolean* is_copy) {
 
 void release_string_chars(jstring str, const jchar* chars) {
     g_env->ReleaseStringChars(str, chars);
-    check_exception();
-}
-
-jsize get_string_utf_length(jstring str) {
-    return check_exception(g_env->GetStringUTFLength(str));
-}
-
-const char* get_string_utf_chars(jstring str, jboolean* is_copy) {
-    return check_exception(g_env->GetStringUTFChars(str, is_copy));
-}
-
-void release_string_utf_chars(jstring str, const char* chars) {
-    g_env->ReleaseStringUTFChars(str, chars);
     check_exception();
 }
 

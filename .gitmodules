@@ -1,3 +1,6 @@
 [submodule "googletest/googletest"]
 	path = googletest/googletest
 	url = https://github.com/google/googletest
+[submodule "utfcpp/utfcpp"]
+	path = utfcpp/utfcpp
+	url = https://github.com/nemtrif/utfcpp.git

@@ -2,6 +2,7 @@
 #define WHATJNI_BASE_H
 
 #include "whatjni/jni.h"
+#include "utf8.h"
 
 #include <string>
 
@@ -194,10 +195,6 @@ WHATJNI_BASE jstring new_string(const jchar* str, jsize length);
 WHATJNI_BASE jsize get_string_length(jstring str);
 WHATJNI_BASE const jchar* get_string_chars(jstring str, jboolean* is_copy);
 WHATJNI_BASE void release_string_chars(jstring str, const jchar* chars);
-
-WHATJNI_BASE jsize get_string_utf_length(jstring str);
-WHATJNI_BASE const char* get_string_utf_chars(jstring str, jboolean* is_copy);
-WHATJNI_BASE void release_string_utf_chars(jstring str, const char* chars);
 
 template <typename T> jarray new_primitive_array(jsize size);
 

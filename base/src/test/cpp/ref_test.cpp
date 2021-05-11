@@ -11,7 +11,7 @@ namespace lang {
 
 class String {
 public:
-    std::u16string to_std_string() {
+    std::string to_std_string() {
         // TODO: with C++17, getStringUTFRegion could copy directly into std::string buffer.
         struct Mapper {
             jstring s;
@@ -29,7 +29,9 @@ public:
         };
 
         Mapper mapper((jstring) this);
-        return std::u16string((const char16_t*) mapper.chars, mapper.length);
+        std::string result;
+        utf8::utf16to8(mapper.chars, mapper.chars + mapper.length, std::back_inserter(result));
+        return result;
     }
 };
 
@@ -256,19 +258,19 @@ TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_default_value_eq
 }
 
 TEST_F(RefTest, c_string_to_object_ref) {
-    ref<java::lang::String> str(u"hello");
-    EXPECT_EQ(str->to_std_string(), u"hello");
+    ref<java::lang::String> str("hello");
+    EXPECT_EQ(str->to_std_string(), "hello");
 
-    str = u"foo";
-    EXPECT_EQ(str->to_std_string(), u"foo");
+    str = "foo";
+    EXPECT_EQ(str->to_std_string(), "foo");
 }
 
 TEST_F(RefTest, std_string_to_object_ref) {
-    ref<java::lang::String> str(std::u16string(u"hello"));
-    EXPECT_EQ(str->to_std_string(), u"hello");
+    ref<java::lang::String> str(std::string("hello"));
+    EXPECT_EQ(str->to_std_string(), "hello");
 
-    str = std::u16string(u"foo");
-    EXPECT_EQ(str->to_std_string(), u"foo");
+    str = std::string("foo");
+    EXPECT_EQ(str->to_std_string(), "foo");
 }
 
 }  // namespace whatjni

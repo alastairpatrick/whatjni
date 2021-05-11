@@ -1,3 +1,4 @@
+import whatjni.util.FindVMLibrary
 import whatjni.GenJNIBindingsTask
 
 plugins {
@@ -45,3 +46,5 @@ tasks.withType(CppCompile).configureEach {
     dependsOn "genBindings"
     includes.from("$buildDir/generated/sources/jniBindings")
 }
+
+//println(configurations.jniBinding.files)

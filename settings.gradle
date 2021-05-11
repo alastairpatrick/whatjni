@@ -2,4 +2,4 @@ rootProject.name = 'whatjni'
 include 'base'
 include 'googletest'
 include 'samples:statistics'
-
+include 'utfcpp'
