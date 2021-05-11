@@ -10,7 +10,9 @@
     #include <windows.h>
     #include <winnt.h>
 #else
-    #define _GNU_SOURCE
+    #ifndef _GNU_SOURCE
+        #define _GNU_SOURCE
+    #endif
     #include <dlfcn.h>
     #include <pthread.h>
 #endif
@@ -96,18 +98,18 @@ static void check_error(int error_code) {
     }
 }
 
-template <typename T>
-static T check_exception(T result) {
-    check_exception();
-    return result;
-}
-
 static void check_exception() {
     jobject exception = g_env->ExceptionOccurred();
     if (exception) {
         g_env->ExceptionClear();
         throw jvm_exception(exception);
     }
+}
+
+template <typename T>
+static T check_exception(T result) {
+    check_exception();
+    return result;
 }
 
 static Module open_module(const string& modulePath) {
