@@ -7,4 +7,5 @@ class MethodModel(val access: Int,
                   val signature: String?) {
     val escapedName = escapeSimpleName(unescapedName)
     val type = Type.getMethodType(descriptor)
+    val isConstructor = unescapedName.equals("<init>")
 }

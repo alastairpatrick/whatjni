@@ -58,13 +58,36 @@ jvm_error::jvm_error(const jvm_error& rhs): error_(rhs.error_) {
 jvm_error::~jvm_error() {
 }
 
-jvm_exception::jvm_exception() {
+jvm_exception::jvm_exception(jobject exception): exception_(exception) {
 }
 
 jvm_exception::jvm_exception(const jvm_exception& rhs) {
+    exception_ = g_env->NewLocalRef(rhs.exception_);
+}
+
+jvm_exception::jvm_exception(jvm_exception&& rhs) {
+    exception_ = rhs.exception_;
+    rhs.exception_ = nullptr;
 }
 
 jvm_exception::~jvm_exception() {
+    g_env->DeleteLocalRef(exception_);
+}
+
+std::string jvm_exception::get_message() const {
+    static jclass clazz = find_class("java/lang/Throwable");
+    static jmethodID method = get_method_id(clazz, "getMessage", "()Ljava/lang/String;");
+    jstring message = (jstring) call_method<jobject>(exception_, method);
+    if (message) {
+        jsize length = get_string_utf_length(message);
+        jboolean is_copy;
+        const char* chars = get_string_utf_chars(message, &is_copy);
+        std::string result = std::string(chars, length);
+        release_string_utf_chars(message, chars);
+        return result;
+    } else {
+        return "null";
+    }
 }
 
 static void check_error(int error_code) {
@@ -75,15 +98,15 @@ static void check_error(int error_code) {
 
 template <typename T>
 static T check_exception(T result) {
-    if (g_env->ExceptionCheck()) {
-        throw jvm_exception();
-    }
+    check_exception();
     return result;
 }
 
 static void check_exception() {
-    if (g_env->ExceptionCheck()) {
-        throw jvm_exception();
+    jobject exception = g_env->ExceptionOccurred();
+    if (exception) {
+        g_env->ExceptionClear();
+        throw jvm_exception(exception);
     }
 }
 
@@ -373,21 +396,8 @@ void delete_auto_ref(jobject* refref) {
     }
 }
 
-void throw_new_exception(jclass clazz, const char* message) {
-    g_env->ThrowNew(clazz, message);
-    throw jvm_exception();
-}
-
-jobject current_exception() {
-    return g_env->ExceptionOccurred();
-}
-
 void print_exception() {
     g_env->ExceptionDescribe();
-}
-
-void clear_exception() {
-    g_env->ExceptionClear();
 }
 
 
@@ -875,6 +885,19 @@ void release_string_chars(jstring str, const jchar* chars) {
     check_exception();
 }
 
+jsize get_string_utf_length(jstring str) {
+    return check_exception(g_env->GetStringUTFLength(str));
+}
+
+const char* get_string_utf_chars(jstring str, jboolean* is_copy) {
+    return check_exception(g_env->GetStringUTFChars(str, is_copy));
+}
+
+void release_string_utf_chars(jstring str, const char* chars) {
+    g_env->ReleaseStringUTFChars(str, chars);
+    check_exception();
+}
+
 template <>
 jarray new_primitive_array<jboolean>(jsize size) {
     return check_exception(g_env->NewBooleanArray(size));
@@ -1133,7 +1156,7 @@ void* get_primitive_array_critical(jarray array, jboolean* is_copy) {
     // Must not call check_exception, ExceptionOccurred or any other JNI function before releasing aside from nesting
     // more getPrimitiveArrayCritical/releasePrimitiveArrayCritical pairs.
     if (!ptr) {
-        throw jvm_exception();
+        throw jvm_error(JNI_ERR);
     }
 
     return ptr;

@@ -3,6 +3,8 @@
 
 #include "whatjni/jni.h"
 
+#include <string>
+
 #ifdef _MSC_VER
 #pragma warning(disable: 4584)  // 'java::lang::String': base-class 'java::lang::Object' is already a base-class of 'java::io::Serializable'
 #endif
@@ -76,12 +78,16 @@ public:
 
 // Thrown when JVM exception detected.
 class WHATJNI_BASE jvm_exception {
+    jobject exception_;
 public:
-    jvm_exception();
-    jvm_exception(const jvm_exception&);
+    explicit jvm_exception(jobject exception);
+    jvm_exception(const jvm_exception& rhs);
+    jvm_exception(jvm_exception&& rhs);
     ~jvm_exception();
 
     jvm_exception& operator=(const jvm_exception&) = delete;
+
+    std::string get_message() const;
 };
 
 WHATJNI_BASE bool load_vm_module(const char* path);
@@ -117,10 +123,7 @@ WHATJNI_BASE void new_auto_ref(jobject* refref, jobject obj);
 WHATJNI_BASE void move_auto_ref(jobject* to, jobject* from);
 WHATJNI_BASE void delete_auto_ref(jobject* refref);
 
-WHATJNI_BASE void throw_new_exception(jclass clazz, const char* message);
-WHATJNI_BASE jobject current_exception();
 WHATJNI_BASE void print_exception();
-WHATJNI_BASE void clear_exception();
 
 
 template <typename T>
@@ -191,6 +194,10 @@ WHATJNI_BASE jstring new_string(const jchar* str, jsize length);
 WHATJNI_BASE jsize get_string_length(jstring str);
 WHATJNI_BASE const jchar* get_string_chars(jstring str, jboolean* is_copy);
 WHATJNI_BASE void release_string_chars(jstring str, const jchar* chars);
+
+WHATJNI_BASE jsize get_string_utf_length(jstring str);
+WHATJNI_BASE const char* get_string_utf_chars(jstring str, jboolean* is_copy);
+WHATJNI_BASE void release_string_utf_chars(jstring str, const char* chars);
 
 template <typename T> jarray new_primitive_array(jsize size);
 

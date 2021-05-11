@@ -42,22 +42,6 @@ TEST_F(BaseTest, new_object) {
     EXPECT_NE(obj, nullptr);
 }
 
-TEST_F(BaseTest, throw_and_catch_exception) {
-    auto clazz = find_class("java/lang/Exception");
-
-    bool fired = false;
-    try {
-        throw_new_exception(clazz, "Oops");
-    } catch (jvm_exception) {
-        fired = true;
-        EXPECT_NE(current_exception(), nullptr);
-        clear_exception();
-    }
-
-    EXPECT_TRUE(fired);
-    EXPECT_EQ(current_exception(), nullptr);
-}
-
 TEST_F(BaseTest, new_local_ref_then_delete_local_ref) {
     auto clazz = find_class("java/awt/Point");
     jobject obj1 = alloc_object(clazz);

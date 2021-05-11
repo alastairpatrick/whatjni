@@ -9,6 +9,8 @@ subprojects {
                 return ['-std=c++11']
             } else if (toolChain instanceof Clang) {
                 return ['-std=c++11', '-fdeclspec']
+            } else if (toolChain instanceof VisualCpp) {
+                return ['/EHsc']
             }
             return []
         }

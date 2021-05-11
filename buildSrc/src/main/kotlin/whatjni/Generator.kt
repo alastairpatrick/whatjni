@@ -52,7 +52,14 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
             return null
         }
 
-        if ((access and Opcodes.ACC_NATIVE) == 0) {
+        // Skip static constructors.
+        if (unescapedName.equals("<clinit>")) {
+            return null
+        }
+
+        val method = MethodModel(access, unescapedName, descriptor, signature)
+
+        if ((access and Opcodes.ACC_NATIVE) == 0 && !method.isConstructor) {
             // Skip method overrides unless native
             var baseClass = classModel.superClass
             while (baseClass != null) {
@@ -66,7 +73,6 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
             classModel.hasNativeMethods = true
         }
 
-        val method = MethodModel(access, unescapedName, descriptor, signature)
         classModel.methods[Pair(method.unescapedName, method.descriptor)] = method
         return null
     }
@@ -221,7 +227,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
             if (value != null) {
                 writer.write(
                     """
-                    const static $cppType $escapedName = $value;
+                    static constexpr $cppType $escapedName = ${literalValue(value)};
                     """.replaceIndent("    ")
                 )
             } else {
@@ -272,6 +278,28 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
         }
     }
 
+    fun literalValue(value: Any?): String {
+        if (value == null) {
+            return "nullptr"
+        }
+
+        return when (value) {
+            is Boolean -> if (value) "true" else "false"
+            is Byte, is Short, is Int, is Long -> value.toString()
+            is Float -> if (value.isInfinite())
+                            if (value > 0) "std::numeric_limits<jfloat>::infinity()" else "-std::numeric_limits<jfloat>::infinity()"
+                        else if (value.isNaN()) "std::numeric_limits<jfloat>::quiet_NaN()"
+                        else value.toString()
+            is Double -> if (value.isInfinite())
+                             if (value > 0) "std::numeric_limits<jdouble>::infinity()" else "-std::numeric_limits<jdouble>::infinity()"
+                         else if (value.isNaN()) "std::numeric_limits<jdouble>::quiet_NaN()"
+                         else value.toString()
+            is Char -> "'$value'"
+            is String -> """u"$value""""
+            else -> "?"
+        }
+    }
+
     fun writeMethodClass() {
         val nameParts = classModel.nameParts
         val unqualifiedClassName = nameParts[nameParts.size - 1]
@@ -315,6 +343,10 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
                 return
             }
 
+            if (isConstructor && (classModel.access and Opcodes.ACC_ABSTRACT) != 0) {
+                return
+            }
+
             val type = Type.getMethodType(descriptor)
             val cppReturnType = makeCPPType(type.returnType, false)
             val escapedName = escapeSimpleName(unescapedName)
@@ -330,7 +362,12 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
             }
             writeAccess(access)
 
-            writer.write("    ${modifiers}$cppReturnType ${escapedName}(")
+            if (isConstructor) {
+                writer.write("    static whatjni::ref<${classModel.escapedName}> new_object(")
+            } else {
+                writer.write("    ${modifiers}$cppReturnType ${escapedName}(")
+            }
+
             var i = 0
             for (argumentType in type.argumentTypes) {
                 val cppArgumentTypeName = makeCPPType(argumentType, true)
@@ -349,9 +386,13 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
                 return """.replaceIndent("        ")
             )
 
-            when (type.returnType.sort) {
-                Type.OBJECT, Type.ARRAY -> writer.write("$cppReturnType($callMethod<jobject>($target, method")
-                else -> writer.write("$callMethod<$cppReturnType>($target, method")
+            if (isConstructor) {
+                writer.write("whatjni::ref<${classModel.escapedName}>(whatjni::new_object(clazz, method")
+            } else {
+                when (type.returnType.sort) {
+                    Type.OBJECT, Type.ARRAY -> writer.write("$cppReturnType($callMethod<jobject>($target, method")
+                    else -> writer.write("$callMethod<$cppReturnType>($target, method")
+                }
             }
 
             i = 0
@@ -364,9 +405,13 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
                 ++i
             }
 
-            when (type.returnType.sort) {
-                Type.OBJECT, Type.ARRAY -> writer.write("), whatjni::own_ref);\n")
-                else -> writer.write(");\n")
+            if (isConstructor) {
+                writer.write("), whatjni::own_ref);\n")
+            } else {
+                when (type.returnType.sort) {
+                    Type.OBJECT, Type.ARRAY -> writer.write("), whatjni::own_ref);\n")
+                    else -> writer.write(");\n")
+                }
             }
 
             writer.write("    }\n\n")
