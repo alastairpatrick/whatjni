@@ -1,5 +1,4 @@
 #include "statistics/main.h"
-#include "java/awt/Point.class.h"
 #include "java/io/BufferedReader.class.h"
 #include "java/io/InputStream.class.h"
 #include "java/io/InputStreamReader.class.h"
@@ -9,10 +8,6 @@
 #include "java/lang/System.class.h"
 #include "org/apache/commons/math3/stat/descriptive/SummaryStatistics.class.h"
 #include "org/apache/commons/math3/stat/descriptive/StatisticalSummary.class.h"
-
-#if false
-#include "mymodule/NonExistent.class.h"
-#endif
 
 #include <cstdlib>
 #include <iostream>
@@ -34,7 +29,6 @@ int main(int argc, const char **argv) {
     whatjni::load_vm_module(getenv("JVM_LIBRARY_PATH"));
 
     std::string defineClassPath = std::string("-Djava.class.path=") + getenv("CLASSPATH");
-
     std::vector<const char*> vm_args(argv + 1, argv + argc);
     vm_args.push_back(defineClassPath.data());
 
