@@ -1,4 +1,4 @@
-#include "toposort/main.h"
+#include "statistics/main.h"
 #include "java/awt/Point.class.h"
 #include "java/io/BufferedReader.class.h"
 #include "java/io/InputStream.class.h"
@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <vector>
 
 using java::io::BufferedReader;
 using java::io::InputStreamReader;
