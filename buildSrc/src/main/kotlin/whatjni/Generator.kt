@@ -233,12 +233,12 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
                 )
             } else if (((access and Opcodes.ACC_STATIC) != 0) and ((access and Opcodes.ACC_FINAL) != 0)) {
                 writer.write(
-                    """
-                    inline static class {
-                        const $cppType& get() const {
-                            static jclass clazz = whatjni::find_class("${classModel.unescapedName}");
-                            static jfieldID field = whatjni::get_static_field_id(clazz, "$unescapedName", "$descriptor");
-                    """)
+                    """                    
+                    static const $cppType& get_$escapedName() {
+                        static jclass clazz = whatjni::find_class("${classModel.unescapedName}");
+                        static jfieldID field = whatjni::get_static_field_id(clazz, "$unescapedName", "$descriptor");
+
+                    """.replaceIndent("    "))
 
                 when (type.sort) {
                     Type.OBJECT, Type.ARRAY -> writer.write("        static whatjni::no_destroy<$cppType> value($getField<jobject>($target, field), whatjni::own_ref);\n")
@@ -247,14 +247,15 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
 
                 writer.write(
                     """
-                             return value.get();
-                        }
-                    public:
-                        const $cppType& operator->() const { return get(); }
-                        operator const $cppType&() const { return get(); }
+                        return value.get();
+                    }
+                    #if WHATJNI_LANG >= 201703L
+                    inline static struct {
+                        const $cppType& operator->() const { return get_$escapedName(); }
+                        operator const $cppType&() const { return get_$escapedName(); }
                     } $escapedName;
-                    """.replaceIndent("    ")
-                )
+                    #endif
+                    """.replaceIndent("    "))
             } else {
                 writer.write(
                     """
