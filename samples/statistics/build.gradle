@@ -47,4 +47,4 @@ tasks.withType(CppCompile).configureEach {
     includes.from("$buildDir/generated/sources/jniBindings")
 }
 
-//println(configurations.jniBinding.files)
+println(configurations.jniBinding.files)

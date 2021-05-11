@@ -43,10 +43,10 @@ int main(int argc, const char **argv) {
     try {
         auto statistics = SummaryStatistics::new_object();
 
-        System::get_out()->println("Enter some numbers, one per line, then 'done' when finished:"_j);
+        System::out->println("Enter some numbers, one per line, then 'done' when finished:"_j);
 
 
-        auto reader = BufferedReader::new_object(InputStreamReader::new_object(System::get_in()));
+        auto reader = BufferedReader::new_object(InputStreamReader::new_object(System::in));
         while (true) {
             auto line = reader->readLine();
             if (line == nullptr || line->equals("done")) {
@@ -57,7 +57,7 @@ int main(int argc, const char **argv) {
             try {
                 number = Double::parseDouble(line);
             } catch (const jvm_exception& e) {
-                System::get_err()->println("Could not parse number"_j);
+                System::err->println("Could not parse number"_j);
                 continue;
             }
 
@@ -69,7 +69,8 @@ int main(int argc, const char **argv) {
         std::ostringstream stream;
         stream << "Average is " << summary->getMean() << "\n";
         stream << "Variance is " << summary->getVariance() << "\n";
-        System::get_out()->print(ref<String>(stream.str()));
+        System::out->print(ref<String>(stream.str()));
+
     } catch (const jvm_exception& e) {
         std::cout << "Exception " << e.get_message() << "\n";
     }

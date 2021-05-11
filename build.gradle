@@ -6,11 +6,11 @@ subprojects {
     tasks.withType(CppCompile).configureEach {
         compilerArgs.addAll toolChain.map { toolChain ->
             if (toolChain instanceof Gcc) {
-                return ['-std=c++11']
+                return ['-std=c++17']
             } else if (toolChain instanceof Clang) {
-                return ['-std=c++11', '-fdeclspec']
+                return ['-std=c++17', '-fdeclspec']
             } else if (toolChain instanceof VisualCpp) {
-                return ['/EHsc']
+                return ['/std:c++17', '/EHsc']
             }
             return []
         }

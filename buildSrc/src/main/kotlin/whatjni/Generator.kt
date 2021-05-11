@@ -230,6 +230,30 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
                     static constexpr $cppType $escapedName = ${literalValue(value)};
                     """.replaceIndent("    ")
                 )
+            } else if (((access and Opcodes.ACC_STATIC) != 0) and ((access and Opcodes.ACC_FINAL) != 0)) {
+                writer.write(
+                    """
+                    class static_final_$escapedName {
+                        $cppType get() const {
+                            static jclass clazz = whatjni::find_class("${classModel.unescapedName}");
+                            static jfieldID field = whatjni::get_static_field_id(clazz, "$unescapedName", "$descriptor");
+                    """)
+
+                when (type.sort) {
+                    Type.OBJECT, Type.ARRAY -> writer.write("        return $cppType($getField<jobject>($target, field), whatjni::own_ref);\n")
+                    else ->                    writer.write("        return $getField<$cppType>($target, field);\n")
+                }
+
+                writer.write(
+                    """
+                        }
+                    public:
+                        $cppType operator->() const { return get(); }
+                        operator $cppType() const { return get(); }
+                    };
+                    inline static static_final_$escapedName $escapedName;
+                    """.replaceIndent("    ")
+                )
             } else {
                 writer.write(
                     """
