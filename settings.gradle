@@ -1,5 +1,5 @@
 rootProject.name = 'whatjni'
 include 'base'
-include 'googletest'
 include 'samples:statistics'
-include 'utfcpp'
+include 'thirdparty:googletest'
+include 'thirdparty:utfcpp'

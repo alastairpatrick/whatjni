@@ -13,8 +13,8 @@ repositories {
 }
 
 dependencies {
-    api(project(":utfcpp"))
-    testImplementation(project(":googletest"))
+    api(project(":thirdparty:utfcpp"))
+    testImplementation(project(":thirdparty:googletest"))
 }
 
 library {
