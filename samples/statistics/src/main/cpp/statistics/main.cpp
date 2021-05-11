@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <string>
 #include <vector>
 
 using java::io::BufferedReader;

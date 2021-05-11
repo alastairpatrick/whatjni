@@ -22,6 +22,8 @@ subprojects {
                 // Workaround
                 // https://github.com/eclipse-openj9/openj9/issues/10416
                 return ['-pagezero_size', '0x1000']
+            } else if (targetPlatform.operatingSystem.isLinux()) {
+                return ['-ldl', '-lpthread']
             } else {
                 return []
             }
