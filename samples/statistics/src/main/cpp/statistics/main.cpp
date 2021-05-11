@@ -66,10 +66,11 @@ int main(int argc, const char **argv) {
 
         auto summary = statistics->getSummary();
 
-        std::basic_ostringstream<char16_t> stream;
-        stream << u"Average is " << summary->getMean() << u"\n";
-        stream << u"Variance is " << summary->getVariance() << u"\n";
-        System::get_out()->print(ref<String>(stream.str()));
+        // TODO: this can be fixed easily once C++ strings use UTF-8 rather than UTF-16 encoding
+        //std::basic_ostringstream<char16_t> stream;
+        //stream << u"Average is " << summary->getMean() << u"\n";
+        //stream << u"Variance is " << summary->getVariance() << u"\n";
+        //System::get_out()->print(ref<String>(stream.str()));
     } catch (const jvm_exception& e) {
         std::cout << "Exception " << e.get_message() << "\n";
     }
