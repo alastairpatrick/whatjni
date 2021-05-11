@@ -54,17 +54,14 @@ public:
 
     ref(const char* str, size_t length) {
         T* t = (::java::lang::String*) nullptr;  // static assert
-
-        // Not using new_string_utf because it doesn't take a length argument. Could potentially use it in the common
-        // case of the input string having no internal null characters though, if there's a performance issue. The JNI
-        // spec says JNI uses some kind of "modified UTF8" so research what exactly that means first.
-        std::u16string str16;
-        utf8::utf8to16(str, str + length, std::back_inserter(str16));
-        jobject local = new_string((const jchar*) str16.data(), str16.length());
-
+        jobject local = new_utf8_string(str, length);
         move_auto_ref((jobject*) &obj, &local);
     }
-    ref(const char* str): ref(str, std::char_traits<char>::length(str)) {}
+    ref(const char* str) {
+        T* t = (::java::lang::String*) nullptr;  // static assert
+        jobject local = new_utf8_string(str);
+        move_auto_ref((jobject*) &obj, &local);
+    }
     ref(const std::string& str): ref(str.data(), str.length()) {}
 
 #if WHATJNI_LANG >= 201703L

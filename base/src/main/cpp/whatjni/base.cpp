@@ -876,6 +876,58 @@ jstring new_string(const jchar* str, jsize length) {
     return check_exception(g_env->NewString(str, length));
 }
 
+jstring new_utf8_string(const char* str, jsize length) {
+    bool fastPath = true;
+    for (size_t i = 0; i < length; ++i) {
+        char c = str[i];
+        if (unsigned char(c - 1) >= 0xEF) {  // null character or first byte of a 4 byte character
+            fastPath = false;
+            break;
+        }
+    }
+
+    if (fastPath) {
+        return g_env->NewStringUTF(str);
+    } else {
+        // The JNI "modified UTF-8" encoding differs from UTF-8 in its representation of null characters and characters
+        // requiring a 4-byte sequence in UTF-8. In that case, transcode to a temporary UTF-16 string before passing
+        // to JNI API.
+        // https://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/types.html#wp16542
+        std::u16string str16;
+        str16.reserve(length);
+        utf8::utf8to16(str, str + length, std::back_inserter(str16));
+        return g_env->NewString((const jchar*) str16.data(), str16.length());
+    }
+}
+
+jstring new_utf8_string(const char* str) {
+    jsize length = 0;
+    bool fastPath = true;
+    for (size_t i = 0;; ++i) {
+        char c = str[i];
+        if (c == 0) {
+            length = i;
+            break;
+        } else if (unsigned char(c) >= 0xF0) {
+            fastPath = false;
+        }
+    }
+
+    if (fastPath) {
+        // The JNI "modified UTF-8" encoding differs from UTF-8 in its representation of null characters and characters
+        // requiring a 4-byte sequence in UTF-8. In that case, transcode to a temporary UTF-16 string before passing
+        // to JNI API.
+        // https://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/types.html#wp16542
+        return g_env->NewStringUTF(str);
+    } else {
+        std::u16string str16;
+        str16.reserve(length);
+        utf8::utf8to16(str, str + length, std::back_inserter(str16));
+        return g_env->NewString((const jchar*) str16.data(), str16.length());
+    }
+}
+
+
 jsize get_string_length(jstring str) {
     return check_exception(g_env->GetStringLength(str));
 }

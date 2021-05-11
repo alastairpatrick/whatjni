@@ -192,6 +192,8 @@ WHATJNI_EACH_JAVA_TYPE()
 #undef X
 
 WHATJNI_BASE jstring new_string(const jchar* str, jsize length);
+WHATJNI_BASE jstring new_utf8_string(const char* str, jsize length);
+WHATJNI_BASE jstring new_utf8_string(const char* str);
 WHATJNI_BASE jsize get_string_length(jstring str);
 WHATJNI_BASE const jchar* get_string_chars(jstring str, jboolean* is_copy);
 WHATJNI_BASE void release_string_chars(jstring str, const jchar* chars);
