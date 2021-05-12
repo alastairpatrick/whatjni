@@ -4,8 +4,6 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
-#include <string>
-#include <vector>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -130,48 +128,6 @@ static void* lookup_module_symbol(Module module, const char* name) {
 #endif
 }
 
-bool load_vm_module(const char* path) {
-    if (g_vm_module) {
-        return true;
-    }
-
-    if (!path) {
-#if defined(_WIN32)
-        path = "jvm.dll";
-#elif defined(__APPLE__)
-        path = "libjvm.dylib";
-#else
-        path = "libjvm.so";
-#endif
-    }
-
-    g_vm_module = open_module(path);
-    return g_vm_module;
-}
-
-static int initialize_inner() {
-    if (!load_vm_module(nullptr)) {
-        fprintf(stderr, "Could not load JVM module.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    JNI_CreateJavaVM = (JNI_CreateJavaVMFunc) lookup_module_symbol(g_vm_module, "JNI_CreateJavaVM");
-
-#ifdef _WIN32
-    Module kernel32_module = open_module("kernel32.dll");
-    GetCurrentThreadStackLimits = (GetCurrentThreadStackLimitsFunc) lookup_module_symbol(kernel32_module,
-                                                                                         "GetCurrentThreadStackLimits");
-#endif
-
-    return 0;
-}
-
-static void initialize() {
-    // Since C++11, if multiple threads attempt to initialize the same static local variable concurrently, the
-    // initialization occurs exactly once.
-    static int result = initialize_inner();
-}
-
 void initialize_thread(JNIEnv* env) {
     if (g_env) {
         return;
@@ -229,19 +185,82 @@ void initialize_thread() {
     initialize_thread(env);
 }
 
-void initialize_vm(jint version, jint argc, const char** argv, jboolean ignore_unrecognized) {
-    initialize();
+static bool load_vm_module(const char* path) {
+    if (!path || !*path) {
+#if defined(_WIN32)
+        path = "jvm.dll";
+#elif defined(__APPLE__)
+        path = "libjvm.dylib";
+#else
+        path = "libjvm.so";
+#endif
+    }
 
-    std::vector<JavaVMOption> options(argc);
-    for (int i = 0; i < argc; ++i) {
-        options[i] = { (char*) argv[i] };
+    Module module = open_module(path);
+    if (!module ) {
+        return false;
+    }
+
+    g_vm_module = module;
+    return true;
+}
+
+static void load_modules(const std::string& path) {
+    if (!load_vm_module(path.c_str())) {
+        if (!load_vm_module(getenv("WHATJNI_VM_PATH"))) {
+            check_error(JNI_ERR);
+        }
+    }
+
+    JNI_CreateJavaVM = (JNI_CreateJavaVMFunc) lookup_module_symbol(g_vm_module, "JNI_CreateJavaVM");
+
+#ifdef _WIN32
+    Module kernel32_module = open_module("kernel32.dll");
+    if (!kernel32_module) {
+        check_error(JNI_ERR);
+    }
+
+    GetCurrentThreadStackLimits = (GetCurrentThreadStackLimitsFunc) lookup_module_symbol(kernel32_module,
+                                                                                         "GetCurrentThreadStackLimits");
+#endif
+}
+
+void initialize_vm(const vm_config& config) {
+    load_modules(config.vm_module_path);
+
+#ifdef _WIN32
+    const char* separator = ";";
+#else
+    const char* separator = ":";
+#endif
+
+    std::string classpath = "-Djava.class.path=";
+    const char* delimiter = "";
+    for (size_t i = 0; i < config.classpath.size(); ++i) {
+        classpath += delimiter;
+        classpath += config.classpath[i];
+        delimiter = separator;
+    }
+
+    const char* extra_classpath = getenv("WHATJNI_CLASSPATH");
+    if (extra_classpath && *extra_classpath) {
+        classpath += delimiter;
+        classpath += extra_classpath;
+        delimiter = separator;
+    }
+
+    std::vector<JavaVMOption> options;
+    options.push_back(JavaVMOption{ (char*) classpath.c_str() });
+
+    for (size_t i = 0; i < config.extra.size(); ++i) {
+        options.push_back(JavaVMOption{ (char*) config.extra[i].c_str() });
     }
 
     const JavaVMInitArgs& init_args = {
-        version,
-        argc,
+        config.version,
+        (jint) options.size(),
         options.data(),
-        ignore_unrecognized,
+        config.ignore_unrecognized,
     };
 
     JNIEnv* env;

@@ -9,11 +9,9 @@
 #include "org/apache/commons/math3/stat/descriptive/SummaryStatistics.class.h"
 #include "org/apache/commons/math3/stat/descriptive/StatisticalSummary.class.h"
 
-#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <vector>
 
 using java::io::BufferedReader;
 using java::io::InputStreamReader;
@@ -26,19 +24,12 @@ using org::apache::commons::math3::stat::descriptive::StatisticalSummary;
 using namespace whatjni;
 
 int main(int argc, const char **argv) {
-    whatjni::load_vm_module(getenv("JVM_LIBRARY_PATH"));
-
-    std::string defineClassPath = std::string("-Djava.class.path=") + getenv("CLASSPATH");
-    std::vector<const char*> vm_args(argv + 1, argv + argc);
-    vm_args.push_back(defineClassPath.data());
-
-    whatjni::initialize_vm(JNI_VERSION_1_8, vm_args.size(), vm_args.data());
+    initialize_vm(vm_config(JNI_VERSION_1_8));
 
     try {
         auto statistics = SummaryStatistics::new_object();
 
         System::out->println("Enter some numbers, one per line, then 'done' when finished:"_j);
-
 
         auto reader = BufferedReader::new_object(InputStreamReader::new_object(System::in));
         while (true) {

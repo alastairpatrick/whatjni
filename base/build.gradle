@@ -40,5 +40,5 @@ tasks.withType(CppCompile).configureEach {
 }
 
 tasks.withType(RunTestExecutable).configureEach {
-    environment.put("JVM_LIBRARY_PATH", FindVMLibrary.find())
+    environment.put("WHATJNI_VM_PATH", FindVMLibrary.find())
 }

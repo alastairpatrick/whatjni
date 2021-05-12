@@ -5,6 +5,7 @@
 #include "utf8.h"
 
 #include <string>
+#include <vector>
 
 #ifdef _MSC_VER
 #pragma warning(disable: 4584)  // 'java::lang::String': base-class 'java::lang::Object' is already a base-class of 'java::io::Serializable'
@@ -91,8 +92,17 @@ public:
     std::string get_message() const;
 };
 
-WHATJNI_BASE bool load_vm_module(const char* path);
-WHATJNI_BASE void initialize_vm(jint version, jint argc, const char** argv, jboolean ignore_unrecognized = JNI_FALSE);
+struct vm_config {
+    explicit vm_config(jint version): version(version) {}
+
+    jint version = 0;
+    std::string vm_module_path;  // path to jvm.dll / libjvm.so
+    std::vector<std::string> classpath;
+    jboolean ignore_unrecognized = false;
+    std::vector<std::string> extra;
+};
+
+WHATJNI_BASE void initialize_vm(const vm_config& config);
 WHATJNI_BASE void shutdown_vm();
 
 WHATJNI_BASE void initialize_thread(JNIEnv* env);
