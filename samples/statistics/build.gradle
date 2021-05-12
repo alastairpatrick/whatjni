@@ -49,21 +49,9 @@ tasks.withType(CppCompile).configureEach {
 }
 
 tasks.withType(InstallExecutable).all { installTask ->
-    def task = tasks.register("whatjni\$${installTask.name}") {
-        doLast {
-            def scriptPath = installTask.installDirectory.file("whatjni.bat").get().asFile
-            def classpath = configurations.jniBinding.asPath
-            def vmPath = whatjni.util.FindVMLibrary.find()
-            def executableFileName = installTask.executableFile.asFile.get().name
-            scriptPath.parentFile.mkdirs()
-            scriptPath.withWriter {
-                it.writeLine("@echo off")
-                it.writeLine("set \"WHATJNI_CLASSPATH=$classpath\"")
-                it.writeLine("set \"WHATJNI_VM_PATH=$vmPath\"")
-                it.writeLine("call \"%~dp0lib\\$executableFileName\" %*")
-                it.writeLine("exit /B %ERRORLEVEL%")
-            }
-        }
+    def task = tasks.register("whatjni\$${installTask.name}", whatjni.GenerateRunScriptTask) {
+        installDirectory.set(installTask.installDirectory.get())
+        executableFile.set(installTask.executableFile.get())
     }
 
     installTask.dependsOn(task)
