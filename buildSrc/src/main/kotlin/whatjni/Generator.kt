@@ -524,7 +524,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         for ((_, method) in classModel.methods) {
             method.apply {
                 if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
-                    writer.write("        {\"$unescapedName\", \"$descriptor\", &${classModel.escapedName}::$jniName },\n")
+                    writer.write("        {(char*) \"$unescapedName\", (char*) \"$descriptor\", (void*) &${classModel.escapedName}::$jniName },\n")
                     ++numMethods
                 }
             }
