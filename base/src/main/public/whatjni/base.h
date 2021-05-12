@@ -95,6 +95,8 @@ WHATJNI_BASE bool load_vm_module(const char* path);
 WHATJNI_BASE void initialize_vm(jint version, jint argc, const char** argv, jboolean ignore_unrecognized = JNI_FALSE);
 WHATJNI_BASE void shutdown_vm();
 
+WHATJNI_BASE void initialize_thread(JNIEnv* env);
+
 WHATJNI_BASE jclass find_class(const char* name);
 WHATJNI_BASE jclass get_super_class(jclass clazz);
 WHATJNI_BASE jboolean is_assignable_from(jclass clazz1, jclass clazz2);
@@ -237,6 +239,8 @@ WHATJNI_BASE void release_primitive_array_critical(jarray array, void* elements,
 
 WHATJNI_BASE void push_local_frame(jint size);
 WHATJNI_BASE jobject pop_local_frame(jobject result = nullptr);
+
+WHATJNI_BASE void register_natives(jclass clazz, const JNINativeMethod* methods, jint numMethods);
 
 }  // namespace whatjni
 

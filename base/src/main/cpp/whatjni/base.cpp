@@ -173,6 +173,10 @@ static void initialize() {
 }
 
 void initialize_thread(JNIEnv* env) {
+    if (g_env) {
+        return;
+    }
+
     g_env = env;
 
 #ifdef _WIN32
@@ -1213,6 +1217,11 @@ void push_local_frame(jint capacity) {
 
 jobject pop_local_frame(jobject result) {
     return check_exception(g_env->PopLocalFrame(result));
+}
+
+void register_natives(jclass clazz, const JNINativeMethod* methods, jint numMethods) {
+    g_env->RegisterNatives(clazz, methods, numMethods);
+    check_exception();
 }
 
 }  // namespace whatjni

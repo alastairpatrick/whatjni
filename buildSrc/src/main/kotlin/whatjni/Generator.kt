@@ -10,7 +10,7 @@ import java.io.File
 import java.io.FileWriter
 import java.io.Writer
 
-class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Opcodes.ASM7) {
+class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNative: Boolean): ClassVisitor(Opcodes.ASM7) {
     lateinit var classModel: ClassModel
     lateinit var writer: Writer
 
@@ -59,18 +59,20 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
 
         val method = MethodModel(access, unescapedName, descriptor, signature)
 
-        if ((access and Opcodes.ACC_NATIVE) == 0 && !method.isConstructor) {
-            // Skip method overrides unless native
-            var baseClass = classModel.superClass
-            while (baseClass != null) {
-                if (baseClass.methods.containsKey(Pair(unescapedName, descriptor))) {
-                    return null
-                }
-                baseClass = baseClass.superClass
-            }
-        } else {
+        if ((access and Opcodes.ACC_NATIVE) != 0) {
             // Can skip private members if no natives
             classModel.hasNativeMethods = true
+        } else {
+            if (!method.isConstructor) {
+                // Skip method overrides unless native
+                var baseClass = classModel.superClass
+                while (baseClass != null) {
+                    if (baseClass.methods.containsKey(Pair(unescapedName, descriptor))) {
+                        return null
+                    }
+                    baseClass = baseClass.superClass
+                }
+            }
         }
 
         classModel.methods[Pair(method.unescapedName, method.descriptor)] = method
@@ -92,11 +94,16 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
         writeOpenNamespace()
         writeFieldClass()
         writeMethodClass()
+        writeMethodRegistration()
         writeCloseNamespace()
         writeFooter()
     }
 
     fun writeHeader() {
+        if (implementsNative) {
+            writer.write("// Implements native\n")
+        }
+
         writer.write("""
             // Don't edit; automatically generated.
                         
@@ -203,8 +210,10 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
 
     fun writeField(field: FieldModel) {
         field.apply {
-            if (!classModel.hasNativeMethods && ((access and Opcodes.ACC_PRIVATE) != 0)) {
-                return
+            if ((access and Opcodes.ACC_PRIVATE) != 0) {
+                if (!implementsNative || !classModel.hasNativeMethods) {
+                    return
+                }
             }
 
             val cppType = makeCPPType(type, false)
@@ -332,8 +341,8 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
         writer.write("""
                      class $unqualifiedClassName: public var_$unqualifiedClassName {
                      public:
-                        typedef var_$unqualifiedClassName var;
-                        
+                         typedef var_$unqualifiedClassName var;
+                     
                      """.trimIndent())
 
         val superClass = classModel.superClass
@@ -356,6 +365,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
             writeMethod(method)
         }
 
+        writer.write("public:\n    static void register_natives();\n")
         writer.write("};\n\n")
     }
 
@@ -365,8 +375,13 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
 
     fun writeMethod(method: MethodModel) {
         method.apply {
-            if (!classModel.hasNativeMethods && ((access and Opcodes.ACC_PRIVATE) != 0)) {
-                return
+            if ((access and Opcodes.ACC_NATIVE) != 0) {
+                println("Native method: ${classModel.unescapedName}.$unescapedName")
+            }
+            if ((access and Opcodes.ACC_PRIVATE) != 0) {
+                if (!implementsNative || !classModel.hasNativeMethods) {
+                    return
+                }
             }
 
             if (isConstructor && (classModel.access and Opcodes.ACC_ABSTRACT) != 0) {
@@ -389,21 +404,12 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
             writeAccess(access)
 
             if (isConstructor) {
-                writer.write("    static whatjni::ref<${classModel.escapedName}> new_object(")
+                writer.write("    static whatjni::ref<${classModel.escapedName}> new_object")
             } else {
-                writer.write("    ${modifiers}$cppReturnType ${escapedName}(")
+                writer.write("    ${modifiers}$cppReturnType ${escapedName}")
             }
-
-            var i = 0
-            for (argumentType in type.argumentTypes) {
-                val cppArgumentTypeName = makeCPPType(argumentType, true)
-                if (i > 0) {
-                    writer.write(", ")
-                }
-                writer.write("$cppArgumentTypeName a$i")
-                ++i
-            }
-            writer.write(") {\n")
+            writeParameters(type)
+            writer.write(" {\n")
 
             writer.write(
                 """
@@ -421,12 +427,12 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
                 }
             }
 
-            i = 0
+            var i = 0
             for (argumentType in type.argumentTypes) {
                 writer.write(", ")
                 when (argumentType.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.write("(jobject) a$i.operator->()")
-                    else -> writer.write("a$i")
+                    Type.OBJECT, Type.ARRAY -> writer.write("(jobject) arg_$i.operator->()")
+                    else -> writer.write("arg_$i")
                 }
                 ++i
             }
@@ -441,7 +447,111 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
             }
 
             writer.write("    }\n\n")
+
+            if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
+                writer.write("private:\n    ${modifiers}$cppReturnType native_${escapedName}")
+                writeParameters(type)
+                writer.write(";\n")
+
+                writer.write("    static ${makeJNIType(type.returnType)} ${jniName}(JNIEnv* env")
+                if ((access and Opcodes.ACC_STATIC) != 0) {
+                    writer.write(", jclass")
+                } else {
+                    writer.write(", jobject ja_thiz")
+                }
+
+                i = 0
+                for (argumentType in type.argumentTypes) {
+                    writer.write(", ${makeJNIType(argumentType)} ja_${i}")
+                    ++i
+                }
+
+                writer.write(") {\n")
+                writer.write("        whatjni::initialize_thread(env);\n")
+
+                if ((access and Opcodes.ACC_STATIC) == 0) {
+                    writer.write("        whatjni::ref<${classModel.escapedName}> arg_thiz(ja_thiz, whatjni::own_ref);\n")
+                }
+
+                i = 0
+                for (argumentType in type.argumentTypes) {
+                    val cppArgumentType = makeCPPType(argumentType, false)
+                    when (argumentType.sort) {
+                        Type.OBJECT, Type.ARRAY -> writer.write("        $cppArgumentType arg_$i(ja_${i}, whatjni::own_ref);\n")
+                        else ->                    writer.write("        $cppArgumentType arg_$i = ja_${i};\n")
+                    }
+                    ++i
+                }
+
+                writer.write("        return ")
+                when (type.returnType.sort) {
+                    Type.OBJECT, Type.ARRAY -> writer.write("(jobject) ")
+                }
+                if ((access and Opcodes.ACC_STATIC) != 0) {
+                    writer.write("native_$escapedName(")
+                } else {
+                    writer.write("arg_thiz->native_$escapedName(")
+                }
+
+                i = 0
+                for (argumentType in type.argumentTypes) {
+                    if (i > 0) {
+                        writer.write(", ")
+                    }
+                    writer.write("arg_$i")
+                    ++i
+                }
+                writer.write(")")
+
+                when (type.returnType.sort) {
+                    Type.OBJECT, Type.ARRAY -> writer.write(".operator->()")
+                }
+
+                writer.write(";\n")
+                writer.write("    }\n")
+            }
         }
+    }
+
+    private fun writeMethodRegistration() {
+        writer.write("""
+                     inline void ${classModel.escapedClassName}::register_natives() {
+                         const static JNINativeMethod methods[] = {
+
+                     """.trimIndent())
+
+        var numMethods = 0
+        for ((_, method) in classModel.methods) {
+            method.apply {
+                if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
+                    writer.write("        {\"$unescapedName\", \"$descriptor\", &${classModel.escapedName}::$jniName },\n")
+                    ++numMethods
+                }
+            }
+        }
+
+        writer.write("""
+                             { nullptr, nullptr, nullptr },
+                         };
+                         const static jclass clazz = whatjni::find_class("${classModel.unescapedName}");
+                         whatjni::register_natives(clazz, methods, $numMethods);    
+                     }
+                     
+                     """.trimIndent())
+    }
+
+    private fun writeParameters(type: Type) {
+        writer.write("(")
+        var i = 0
+        for (argumentType in type.argumentTypes) {
+            val cppArgumentTypeName = makeCPPType(argumentType, true)
+            if (i > 0) {
+                writer.write(", ")
+            }
+            writer.write("$cppArgumentTypeName arg_$i")
+            ++i
+        }
+        writer.write(")")
     }
 
     private fun writeAccess(access: Int) {
@@ -473,6 +583,23 @@ class Generator(val generatedDir: File, val classMap: ClassMap): ClassVisitor(Op
             result += "static "
         }
         return result
+    }
+
+    private fun makeJNIType(type: Type): String {
+        return when (type.sort) {
+            Type.VOID -> "void"
+            Type.BOOLEAN -> "jboolean"
+            Type.BYTE -> "jbyte"
+            Type.SHORT -> "jshort"
+            Type.INT -> "jint"
+            Type.LONG -> "jlong"
+            Type.CHAR -> "jchar"
+            Type.FLOAT -> "jfloat"
+            Type.DOUBLE -> "jdouble"
+            Type.OBJECT -> "jobject"
+            Type.ARRAY -> "jobject"
+            else -> "void"
+        }
     }
 
     private fun makeCPPType(type: Type, param: Boolean): String {

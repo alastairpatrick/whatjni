@@ -1,9 +1,10 @@
 import org.objectweb.asm.*
 import whatjni.Generator
+import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
 
-class ClassMap(val generatedDir: File, val loader: ClassLoader) {
+class ClassMap(val generatedDir: File, val loader: ClassLoader, val nativePackages: Set<String>) {
     private val classes = HashMap<String, ClassModel>()
 
     fun get(className: String): ClassModel {
@@ -26,7 +27,14 @@ class ClassMap(val generatedDir: File, val loader: ClassLoader) {
             return ClassModel(0, className, "", null, ArrayList<ClassModel>())
         }
 
-        val generator = Generator(generatedDir,this)
+        var implementsNative = false
+        for (pkg in nativePackages) {
+            if (className.replace("/", ".").startsWith(pkg + ".")) {
+                implementsNative = true
+            }
+        }
+
+        val generator = Generator(generatedDir,this, implementsNative)
         val classReader = ClassReader(classStream)
         classReader.accept(generator, ClassReader.SKIP_CODE or ClassReader.SKIP_DEBUG or ClassReader.SKIP_FRAMES)
         classes[className] = generator.classModel

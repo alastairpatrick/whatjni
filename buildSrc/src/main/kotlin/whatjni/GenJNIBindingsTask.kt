@@ -4,6 +4,7 @@ import ClassMap
 import com.google.gson.Gson
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.*
+import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.*
 import org.gradle.work.ChangeType
 import org.gradle.work.Incremental
@@ -30,6 +31,9 @@ abstract class GenJNIBindingsTask : DefaultTask() {
 
     @get:OutputDirectory
     abstract val generatedDir: DirectoryProperty
+
+    @get:Input
+    abstract val nativePackages: SetProperty<String>
 
     init {
         source.from(projectLayout.projectDirectory.dir("src/main/cpp"), projectLayout.projectDirectory.dir("src/main/headers"))
@@ -81,7 +85,7 @@ abstract class GenJNIBindingsTask : DefaultTask() {
         }
 
         URLClassLoader((classpath.map { it.toURI().toURL() }).toTypedArray()).use { loader ->
-            val classMap = ClassMap(generatedDir.get().asFile, loader)
+            val classMap = ClassMap(generatedDir.get().asFile, loader, nativePackages.get())
             for (className in dependencies) {
                 classMap.get(className)
             }
