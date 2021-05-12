@@ -16,7 +16,7 @@ import javax.inject.Inject
 
 data class Index(val units: HashMap<String, ArrayList<String>> = hashMapOf())
 
-abstract class GenJNIBindingsTask : DefaultTask() {
+abstract class GenerateJNIBindingsTaskGen : DefaultTask() {
     @get:Inject
     abstract val projectLayout: ProjectLayout
 

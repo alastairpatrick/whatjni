@@ -1,5 +1,5 @@
 import whatjni.util.FindVMLibrary
-import whatjni.GenJNIBindingsTask
+import whatjni.GenerateJNIBindingsTask
 
 plugins {
     id 'cpp-application'
@@ -37,7 +37,7 @@ application {
     ]
 }
 
-task genBindings(type: GenJNIBindingsTask) {
+task genBindings(type: GenerateJNIBindingsTask) {
     dependsOn configurations.jniBinding
     classpath.from configurations.jniBinding.files
     nativePackages.addAll(["java.lang"])
