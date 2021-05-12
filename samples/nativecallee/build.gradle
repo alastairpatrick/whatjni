@@ -46,4 +46,20 @@ tasks.withType(CppCompile).configureEach {
     includes.from("$buildDir/generated/sources/jniBindings")
 }
 
-print(configurations.jniBinding.files)
+tasks.withType(InstallExecutable).all { installTask ->
+    def task = tasks.register("whatjni\$${installTask.name}") {
+        doLast {
+            def scriptPath = installTask.installDirectory.file("whatjni.bat").get().asFile
+            scriptPath.parentFile.mkdirs()
+            scriptPath.withWriter {
+                it.writeLine("@echo off")
+                it.writeLine("set CLASSPATH=${configurations.jniBinding.asPath}")
+                it.writeLine("set JVM_LIBRARY_PATH=${whatjni.util.FindVMLibrary.find()}")
+                it.writeLine("call \"%~dp0lib\\nativecallee.exe\" %*")
+                it.writeLine("exit /B %ERRORLEVEL%")
+            }
+        }
+    }
+
+    installTask.dependsOn(task)
+}
