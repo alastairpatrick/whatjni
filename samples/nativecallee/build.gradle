@@ -1,25 +1,12 @@
-import whatjni.GenerateJNIBindingsTask
-
 plugins {
     id 'cpp-application'
+    id 'whatjni'
 }
 
 version 'unspecified'
 
 repositories {
     mavenCentral()
-}
-
-configurations {
-    jniBinding {
-        canBeConsumed = false
-        canBeResolved = true
-
-        attributes {
-            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, "java-api"))
-            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, "classes"))
-        }
-    }
 }
 
 dependencies {
@@ -35,22 +22,6 @@ application {
     ]
 }
 
-task genBindings(type: GenerateJNIBindingsTask) {
-    dependsOn configurations.jniBinding
-    classpath.from configurations.jniBinding.files
+whatjni {
     nativePackages.addAll(["whatjni.samples"])
-}
-
-tasks.withType(CppCompile).configureEach {
-    dependsOn "genBindings"
-    includes.from("$buildDir/generated/sources/jniBindings")
-}
-
-tasks.withType(InstallExecutable).all { installTask ->
-    def task = tasks.register("whatjni\$${installTask.name}", whatjni.GenerateRunScriptTask) {
-        installDirectory.set(installTask.installDirectory.get())
-        executableFile.set(installTask.executableFile.get())
-    }
-
-    installTask.dependsOn(task)
 }

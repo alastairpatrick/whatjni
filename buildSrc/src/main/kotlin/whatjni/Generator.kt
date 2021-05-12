@@ -375,9 +375,6 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
 
     fun writeMethod(method: MethodModel) {
         method.apply {
-            if ((access and Opcodes.ACC_NATIVE) != 0) {
-                println("Native method: ${classModel.unescapedName}.$unescapedName")
-            }
             if ((access and Opcodes.ACC_PRIVATE) != 0) {
                 if (!implementsNative || !classModel.hasNativeMethods) {
                     return
