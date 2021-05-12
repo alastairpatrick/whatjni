@@ -8,11 +8,14 @@ import org.gradle.api.file.ProjectLayout
 import org.gradle.api.model.ObjectFactory
 import org.gradle.language.cpp.tasks.CppCompile
 import org.gradle.nativeplatform.tasks.InstallExecutable
+import org.gradle.nativeplatform.test.tasks.RunTestExecutable
+import whatjni.util.FindVMLibrary
 import javax.inject.Inject
 
 abstract class GenerateJNIBindingsPlugin: Plugin<Project> {
     companion object {
         val BINDING_CONFIGURATION = "jniBinding"
+        val GENERATED_DIR = "generated/sources/jniBindings"
     }
 
     @get:Inject
@@ -41,7 +44,7 @@ abstract class GenerateJNIBindingsPlugin: Plugin<Project> {
 
         project.tasks.withType(CppCompile::class.java).configureEach {
             it.dependsOn(generateTask)
-            it.includes.from(projectLayout.buildDirectory.dir("generated/sources/jniBindings"))
+            it.includes.from(projectLayout.buildDirectory.dir(GENERATED_DIR))
         }
 
         project.tasks.withType(InstallExecutable::class.java).all { installTask ->
@@ -51,6 +54,11 @@ abstract class GenerateJNIBindingsPlugin: Plugin<Project> {
             }
 
             installTask.dependsOn(task)
+        }
+
+        project.tasks.withType(RunTestExecutable::class.java).configureEach {
+            it.environment.put("WHATJNI_CLASSPATH", jniBinding.asPath)
+            it.environment.put("WHATJNI_VM_PATH", FindVMLibrary.find())
         }
     }
 }

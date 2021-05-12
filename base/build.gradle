@@ -1,8 +1,7 @@
-import whatjni.util.FindVMLibrary
-
 plugins {
     id 'cpp-library'
     id 'cpp-unit-test'
+    id 'whatjni'
 }
 
 group 'org.example'
@@ -37,8 +36,4 @@ unitTest {
 
 tasks.withType(CppCompile).configureEach {
     macros.put("WHATJNI_BASE_EXPORT", null)
-}
-
-tasks.withType(RunTestExecutable).configureEach {
-    environment.put("WHATJNI_VM_PATH", FindVMLibrary.find())
 }

@@ -37,7 +37,7 @@ abstract class GenerateJNIBindingsTask : DefaultTask() {
 
     init {
         source.from(projectLayout.projectDirectory.dir("src/main/cpp"), projectLayout.projectDirectory.dir("src/main/headers"))
-        generatedDir.convention(projectLayout.buildDirectory.dir("generated/sources/jniBindings"))
+        generatedDir.convention(projectLayout.buildDirectory.dir(GenerateJNIBindingsPlugin.GENERATED_DIR))
     }
 
     @TaskAction

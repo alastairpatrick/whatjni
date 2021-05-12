@@ -18,7 +18,7 @@ abstract class GenerateRunScriptTask: DefaultTask() {
 
     @TaskAction
     fun perform() {
-        val classpath = project.configurations.findByName("jniBinding")?.asPath
+        val classpath = project.configurations.findByName(GenerateJNIBindingsPlugin.BINDING_CONFIGURATION)?.asPath
         val vmPath = FindVMLibrary.find()
         val executableFileName = executableFile.get().asFile.name
 
