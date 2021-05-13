@@ -476,25 +476,27 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
     }
 
     private fun writeMethodRegistration() {
+        val nativeMethods = classModel.methods.filter { implementsNative && (it.access and Opcodes.ACC_NATIVE) != 0 }
+        if (nativeMethods.isEmpty()) {
+            return
+        }
+
         writer.writeln_lr("public:")
         writer.writeln_r("static void register_natives() {")
 
-        val nativeMethods = classModel.methods.filter { implementsNative && (it.access and Opcodes.ACC_NATIVE) != 0 }
-        if (!nativeMethods.isEmpty()) {
-            writer.writeln_r("const static JNINativeMethod methods[] = {")
+        writer.writeln_r("const static JNINativeMethod methods[] = {")
 
-            for (method in classModel.methods) {
-                method.apply {
-                    if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
-                        writer.writeln("{(char*) \"$unescapedName\", (char*) \"$descriptor\", (void*) &${classModel.escapedName}::$jniName },")
-                    }
+        for (method in classModel.methods) {
+            method.apply {
+                if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
+                    writer.writeln("{(char*) \"$unescapedName\", (char*) \"$descriptor\", (void*) &${classModel.escapedName}::$jniName },")
                 }
             }
-
-            writer.writeln_l("};")
-            writer.writeln("const static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
-            writer.writeln("whatjni::register_natives(clazz, methods, ${nativeMethods.size});")
         }
+
+        writer.writeln_l("};")
+        writer.writeln("const static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+        writer.writeln("whatjni::register_natives(clazz, methods, ${nativeMethods.size});")
 
         writer.writeln_l("}")
     }
