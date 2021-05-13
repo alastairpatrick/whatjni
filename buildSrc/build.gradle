@@ -9,9 +9,10 @@ repositories {
 
 dependencies {
     implementation gradleApi()
-    implementation "org.jetbrains.kotlin:kotlin-stdlib"
     implementation "com.google.code.gson:gson:2.8.5"
     implementation "net.java.dev.jna:jna:5.8.0"
+    implementation "org.ainslec:picocog:1.0.7"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib"
     implementation "org.ow2.asm:asm:9.1"
 }
 

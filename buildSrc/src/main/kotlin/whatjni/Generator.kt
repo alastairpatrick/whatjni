@@ -4,15 +4,15 @@ import ClassMap
 import ClassModel
 import FieldModel
 import MethodModel
+import org.ainslec.picocog.PicoWriter
 import org.objectweb.asm.*
-import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
-import java.io.Writer
+import kotlin.collections.HashSet
 
 class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNative: Boolean): ClassVisitor(Opcodes.ASM7) {
     lateinit var classModel: ClassModel
-    lateinit var writer: Writer
+    val writer = PicoWriter()
 
     override fun visit(
         version: Int,
@@ -80,11 +80,13 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
     }
 
     override fun visitEnd() {
+        generate()
+
         val generatedFile = generatedDir.resolve(classModel.unescapedName + ".class.h")
         generatedFile.parentFile.mkdirs()
-        BufferedWriter(FileWriter(generatedFile)).use {
-            writer = it
-            generate()
+
+        FileWriter(generatedFile).use {
+            it.write((writer.toString()))
         }
     }
 
@@ -101,54 +103,32 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
 
     fun writeHeader() {
         if (implementsNative) {
-            writer.write("// Implements native\n")
+            writer.writeln("// Implements native")
         }
 
-        writer.write("""
-            // Don't edit; automatically generated.
-                        
-            #ifndef ${classModel.sentryMacro}
-            #define ${classModel.sentryMacro}
-             
-            #include "whatjni/array.h"
-            #include "whatjni/no_destroy.h"
-            #include "whatjni/ref.h"
-            
-            """.trimIndent())
+        writer.writeln("// Don't edit; automatically generated.")
+        writer.writeln("#ifndef ${classModel.sentryMacro}")
+        writer.writeln("#define ${classModel.sentryMacro}")
+        writer.writeln()
+        writer.writeln("#include \"whatjni/array.h\"")
+        writer.writeln("#include \"whatjni/no_destroy.h\"")
+        writer.writeln("#include \"whatjni/ref.h\"")
+        writer.writeln()
 
         val superClass = classModel.superClass
         if (superClass != null) {
-            writer.write("#include \"${superClass.unescapedName}.class.h\"")
+            writer.writeln("#include \"${superClass.unescapedName}.class.h\"")
         }
 
-        writer.write("\n\n")
+        writer.writeln()
     }
 
     fun writeForwardDeclarations() {
-        val declared = HashSet<String>()
-
-        fun declareClass(unescapedName: String): Boolean {
-            if (declared.add(unescapedName)) {
-                val name = escapeQualifiedName(unescapedName)
-
-                val parts = name.split(".")
-                for (i in 0..parts.size - 2) {
-                    writer.write("namespace ${parts[i]} { ")
-                }
-                writer.write("class ${parts[parts.size - 1]}; ")
-                for (i in 0..parts.size - 2) {
-                    writer.write("} ")
-                }
-                writer.write("\n")
-
-                return true
-            }
-            return false
-        }
+        val declared = sortedSetOf<String>()
 
         fun recurseType(type: Type) {
             when (type.sort) {
-                Type.OBJECT -> declareClass(type.className)
+                Type.OBJECT -> declared.add(type.className)
                 Type.ARRAY -> recurseType(type.elementType)
                 Type.METHOD -> {
                     recurseType(type.returnType)
@@ -162,7 +142,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         val todo = arrayListOf(classModel)
         while (!todo.isEmpty()) {
             val model = todo.removeLast()
-            if (declareClass(model.unescapedName.replace("/", "."))) {
+            if (declared.add(model.unescapedName.replace("/", "."))) {
                 for (iface in model.interfaces) {
                     todo.add(iface)
                 }
@@ -180,32 +160,50 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             }
         }
 
-        writer.write("\n")
+        for (unescapedName in declared) {
+            val name = escapeQualifiedName(unescapedName)
+
+            var line = ""
+            val parts = name.split(".")
+            for (i in 0..parts.size - 2) {
+                line += "namespace ${parts[i]} { "
+            }
+            line += "class ${parts[parts.size - 1]}; "
+            for (i in 0..parts.size - 2) {
+                line += "} "
+            }
+
+            writer.writeln(line)
+        }
+
+        writer.writeln()
     }
 
     fun writeOpenNamespace() {
         val nameParts = classModel.nameParts
         for (i in 0 .. nameParts.size - 2) {
-            writer.write("namespace ${nameParts[i]} {\n")
+            writer.writeln("namespace ${nameParts[i]} {")
         }
+        writer.writeln()
     }
 
     fun writeFieldClass() {
         val nameParts = classModel.nameParts
-        writer.write("\nclass var_${nameParts[nameParts.size - 1]}")
+        writer.write("class var_${nameParts[nameParts.size - 1]}")
 
         val superClass = classModel.superClass
         if (superClass != null) {
             writer.write(": public " + superClass.escapedName)
         }
 
-        writer.write(" {\n")
+        writer.writeln_r(" {")
 
         for (field in classModel.fields) {
             writeField(field)
         }
 
-        writer.write("};\n\n")
+        writer.writeln_l("};")
+        writer.writeln()
     }
 
     fun writeField(field: FieldModel) {
@@ -235,81 +233,61 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             writeAccess(access)
 
             if (value != null) {
-                writer.write(
-                    """
-                    static constexpr $cppType $escapedName = ${literalValue(value)};
-                    """.replaceIndent("    ")
-                )
+                writer.writeln("static constexpr $cppType $escapedName = ${literalValue(value)};")
             } else if (((access and Opcodes.ACC_STATIC) != 0) and ((access and Opcodes.ACC_FINAL) != 0)) {
-                writer.write(
-                    """                    
-                    static const $cppType& get_$escapedName() {
-                        static jclass clazz = whatjni::find_class("${classModel.unescapedName}");
-                        static jfieldID field = whatjni::get_static_field_id(clazz, "$unescapedName", "$descriptor");
-
-                    """.replaceIndent("    "))
+                writer.writeln_r("static const $cppType& get_$escapedName() {")
+                writer.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+                writer.writeln("static jfieldID field = whatjni::get_static_field_id(clazz, \"$unescapedName\", \"$descriptor\");")
 
                 when (type.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.write("        static whatjni::no_destroy<$cppType> value($getField<jobject>($target, field), whatjni::own_ref);\n")
-                    else ->                    writer.write("        static whatjni::no_destroy<$cppType> value($getField<$cppType>($target, field));\n")
+                    Type.OBJECT, Type.ARRAY -> writer.writeln("static whatjni::no_destroy<$cppType> value($getField<jobject>($target, field), whatjni::own_ref);")
+                    else ->                    writer.writeln("static whatjni::no_destroy<$cppType> value($getField<$cppType>($target, field));")
                 }
 
-                writer.write(
-                    """
-                        return value.get();
-                    }
-                    #if WHATJNI_LANG >= 201703L
-                    inline static struct {
-                        const $cppType& operator->() const { return get_$escapedName(); }
-                        operator const $cppType&() const { return get_$escapedName(); }
-                    } $escapedName;
-                    #endif
-                    """.replaceIndent("    "))
+                writer.writeln("return value.get();")
+                writer.writeln_l("}")
+
+                writer.writeln_lr("#if WHATJNI_LANG >= 201703L")
+                writer.writeln_r("inline static struct {")
+                writer.writeln("const $cppType& operator->() const { return get_$escapedName(); }")
+                writer.writeln("operator const $cppType&() const { return get_$escapedName(); }")
+                writer.writeln_l("} $escapedName;")
+                writer.writeln_lr("#endif")
             } else {
-                writer.write(
-                    """
-                    $modifiers$cppType get_$escapedName() {
-                        static jclass clazz = whatjni::find_class("${classModel.unescapedName}");
-                        static jfieldID field = $getFieldID(clazz, "$unescapedName", "$descriptor");
-
-                    """.replaceIndent("    ")
-                )
+                writer.writeln_r("$modifiers$cppType get_$escapedName() {")
+                writer.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+                writer.writeln("static jfieldID field = $getFieldID(clazz, \"$unescapedName\", \"$descriptor\");")
 
                 when (type.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.write("        return $cppType($getField<jobject>($target, field), whatjni::own_ref);\n")
-                    else ->                    writer.write("        return $getField<$cppType>($target, field);\n")
+                    Type.OBJECT, Type.ARRAY -> writer.writeln("return $cppType($getField<jobject>($target, field), whatjni::own_ref);")
+                    else ->                    writer.writeln("return $getField<$cppType>($target, field);")
                 }
 
-                writer.write("    }\n")
+                writer.writeln_l("}")
 
                 if ((access and Opcodes.ACC_FINAL) == 0) {
-                    writer.write(
-                        """
-                            ${modifiers}void set_$escapedName($paramCPPType value) {
-                                static jclass clazz = whatjni::find_class("${classModel.unescapedName}");
-                                static jfieldID field = $getFieldID(clazz, "$unescapedName", "$descriptor");
-                            
-                        """.replaceIndent("    ")
-                    )
+                    writer.writeln_r("${modifiers}void set_$escapedName($paramCPPType value) {")
+                    writer.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+                    writer.writeln("static jfieldID field = $getFieldID(clazz, \"$unescapedName\", \"$descriptor\");")
 
                     when (type.sort) {
-                        Type.OBJECT, Type.ARRAY -> writer.write("        $setField($target, field, (jobject) value.operator->());\n")
-                        else ->                    writer.write("        $setField($target, field, value);\n")
+                        Type.OBJECT, Type.ARRAY -> writer.writeln("$setField($target, field, (jobject) value.operator->());")
+                        else ->                    writer.writeln("$setField($target, field, value);")
                     }
 
-                    writer.write("    }\n")
+                    writer.writeln_l("}")
 
                     if ((access and Opcodes.ACC_STATIC) == 0) {
-                        writer.write("    WHATJNI_IF_PROPERTY(__declspec(property(get=get_$escapedName, put=set_$escapedName)) $modifiers$cppType $escapedName;)\n")
+                        writer.writeln("WHATJNI_IF_PROPERTY(__declspec(property(get=get_$escapedName, put=set_$escapedName)) $modifiers$cppType $escapedName;)")
                     }
                 } else {
                     if ((access and Opcodes.ACC_STATIC) == 0) {
-                        writer.write("    WHATJNI_IF_PROPERTY(__declspec(property(get=get_$escapedName)) $modifiers$cppType $escapedName;)\n")
+                        writer.writeln("WHATJNI_IF_PROPERTY(__declspec(property(get=get_$escapedName)) $modifiers$cppType $escapedName;)")
                     }
                 }
             }
 
-            writer.write("\n")
+            writer.writeln()
         }
     }
 
@@ -338,12 +316,9 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
     fun writeMethodClass() {
         val nameParts = classModel.nameParts
         val unqualifiedClassName = nameParts[nameParts.size - 1]
-        writer.write("""
-                     class $unqualifiedClassName: public var_$unqualifiedClassName {
-                     public:
-                         typedef var_$unqualifiedClassName var;
-                     
-                     """.trimIndent())
+        writer.writeln_r("class $unqualifiedClassName: public var_$unqualifiedClassName {")
+        writer.writeln_lr("public:")
+        writer.writeln("typedef var_$unqualifiedClassName var;")
 
         val superClass = classModel.superClass
         if (superClass != null) {
@@ -360,17 +335,20 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             }
             writeStaticAssign(classModel)
         }
+        writer.writeln()
 
         for ((_, method) in classModel.methods) {
             writeMethod(method)
         }
 
-        writer.write("public:\n    static void register_natives();\n")
-        writer.write("};\n\n")
+        writer.writeln_lr("public:")
+        writer.writeln("static void register_natives();")
+        writer.writeln_l("};")
+        writer.writeln()
     }
 
     fun writeStaticAssign(assignToModel: ClassModel) {
-        writer.write("    static void static_assert_assignable(${assignToModel.escapedName}*) {}\n")
+        writer.writeln("static void static_assert_assignable(${assignToModel.escapedName}*) {}")
     }
 
     fun writeMethod(method: MethodModel) {
@@ -401,20 +379,17 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             writeAccess(access)
 
             if (isConstructor) {
-                writer.write("    static whatjni::ref<${classModel.escapedName}> new_object")
+                writer.write("static whatjni::ref<${classModel.escapedName}> new_object")
             } else {
-                writer.write("    ${modifiers}$cppReturnType ${escapedName}")
+                writer.write("${modifiers}$cppReturnType ${escapedName}")
             }
             writeParameters(type)
-            writer.write(" {\n")
+            writer.writeln_r(" {")
 
-            writer.write(
-                """
-                static jclass clazz = whatjni::find_class("${classModel.unescapedName}");
-                static jmethodID method = $getMethodID(clazz, "$unescapedName", "$descriptor");
-                return """.replaceIndent("        ")
-            )
+            writer.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+            writer.writeln("static jmethodID method = $getMethodID(clazz, \"$unescapedName\", \"$descriptor\");")
 
+            writer.write("return ")
             if (isConstructor) {
                 writer.write("whatjni::ref<${classModel.escapedName}>(whatjni::new_object(clazz, method")
             } else {
@@ -435,22 +410,24 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             }
 
             if (isConstructor) {
-                writer.write("), whatjni::own_ref);\n")
+                writer.writeln("), whatjni::own_ref);")
             } else {
                 when (type.returnType.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.write("), whatjni::own_ref);\n")
-                    else -> writer.write(");\n")
+                    Type.OBJECT, Type.ARRAY -> writer.writeln("), whatjni::own_ref);")
+                    else -> writer.writeln(");")
                 }
             }
 
-            writer.write("    }\n\n")
+            writer.writeln_l("}")
+            writer.writeln()
 
             if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
-                writer.write("private:\n    ${modifiers}$cppReturnType native_${escapedName}")
+                writer.writeln_lr("private:")
+                writer.write("${modifiers}$cppReturnType native_${escapedName}")
                 writeParameters(type)
-                writer.write(";\n")
+                writer.writeln(";")
 
-                writer.write("    static ${makeJNIType(type.returnType)} ${jniName}(JNIEnv* env")
+                writer.write("static ${makeJNIType(type.returnType)} ${jniName}(JNIEnv* env")
                 if ((access and Opcodes.ACC_STATIC) != 0) {
                     writer.write(", jclass")
                 } else {
@@ -463,24 +440,24 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                     ++i
                 }
 
-                writer.write(") {\n")
-                writer.write("        whatjni::initialize_thread(env);\n")
+                writer.writeln_r(") {")
+                writer.writeln("whatjni::initialize_thread(env);")
 
                 if ((access and Opcodes.ACC_STATIC) == 0) {
-                    writer.write("        whatjni::ref<${classModel.escapedName}> arg_thiz(ja_thiz, whatjni::own_ref);\n")
+                    writer.writeln("whatjni::ref<${classModel.escapedName}> arg_thiz(ja_thiz, whatjni::own_ref);")
                 }
 
                 i = 0
                 for (argumentType in type.argumentTypes) {
                     val cppArgumentType = makeCPPType(argumentType, false)
                     when (argumentType.sort) {
-                        Type.OBJECT, Type.ARRAY -> writer.write("        $cppArgumentType arg_$i(ja_${i}, whatjni::own_ref);\n")
-                        else ->                    writer.write("        $cppArgumentType arg_$i = ja_${i};\n")
+                        Type.OBJECT, Type.ARRAY -> writer.writeln("$cppArgumentType arg_$i(ja_${i}, whatjni::own_ref);")
+                        else ->                    writer.writeln("$cppArgumentType arg_$i = ja_${i};")
                     }
                     ++i
                 }
 
-                writer.write("        return ")
+                writer.write("return ")
                 when (type.returnType.sort) {
                     Type.OBJECT, Type.ARRAY -> writer.write("(jobject) ")
                 }
@@ -504,37 +481,32 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                     Type.OBJECT, Type.ARRAY -> writer.write(".operator->()")
                 }
 
-                writer.write(";\n")
-                writer.write("    }\n")
+                writer.writeln(";")
+                writer.writeln_l("}")
             }
         }
     }
 
     private fun writeMethodRegistration() {
-        writer.write("""
-                     inline void ${classModel.escapedClassName}::register_natives() {
-                         const static JNINativeMethod methods[] = {
-
-                     """.trimIndent())
+        writer.writeln_r("inline void ${classModel.escapedClassName}::register_natives() {")
+        writer.writeln_r("const static JNINativeMethod methods[] = {")
 
         var numMethods = 0
         for ((_, method) in classModel.methods) {
             method.apply {
                 if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
-                    writer.write("        {(char*) \"$unescapedName\", (char*) \"$descriptor\", (void*) &${classModel.escapedName}::$jniName },\n")
+                    writer.writeln("{(char*) \"$unescapedName\", (char*) \"$descriptor\", (void*) &${classModel.escapedName}::$jniName },")
                     ++numMethods
                 }
             }
         }
 
-        writer.write("""
-                             { nullptr, nullptr, nullptr },
-                         };
-                         const static jclass clazz = whatjni::find_class("${classModel.unescapedName}");
-                         whatjni::register_natives(clazz, methods, $numMethods);    
-                     }
-                     
-                     """.trimIndent())
+        writer.writeln("{ nullptr, nullptr, nullptr },")
+        writer.writeln_l("};")
+        writer.writeln("const static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+        writer.writeln("whatjni::register_natives(clazz, methods, $numMethods);")
+        writer.writeln_l("}")
+        writer.writeln()
     }
 
     private fun writeParameters(type: Type) {
@@ -553,25 +525,26 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
 
     private fun writeAccess(access: Int) {
         if ((access and Opcodes.ACC_PUBLIC) != 0) {
-            writer.write("public:\n")
+            writer.writeln_lr("public:")
         } else if ((access and Opcodes.ACC_PROTECTED) != 0) {
-            writer.write("protected:\n")
+            writer.writeln_lr("protected:")
         } else if ((access and Opcodes.ACC_PRIVATE) != 0) {
-            writer.write("private:\n")
+            writer.writeln_lr("private:")
         } else {
-            writer.write("public:\n")
+            writer.writeln_lr("public:")
         }
     }
 
     fun writeCloseNamespace() {
         val nameParts = classModel.nameParts
         for (i in nameParts.size - 2 downTo 0) {
-            writer.write("}  // namespace ${nameParts[i]}\n")
+            writer.writeln("}  // namespace ${nameParts[i]}")
         }
+        writer.writeln()
     }
 
     fun writeFooter() {
-        writer.write("\n\n#endif  // ${classModel.sentryMacro}\n")
+        writer.writeln("#endif  // ${classModel.sentryMacro}")
     }
 
     private fun getModifiers(access: Int): String {
