@@ -10,8 +10,8 @@ class ClassModel(val access: Int,
     val escapedClassName = nameParts[nameParts.size - 1]
     val sentryMacro = nameParts.joinToString(separator = "_") + "_SENTRY_H_"
 
-    val fields = ArrayList<FieldModel>()
-    val methods = HashMap<Pair<String, String>, MethodModel>()
+    val fields = sortedSetOf<FieldModel>()
+    val methods = sortedSetOf<MethodModel>()
 
     var hasNativeMethods = false
 }

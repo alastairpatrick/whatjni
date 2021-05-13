@@ -8,7 +8,6 @@ import org.ainslec.picocog.PicoWriter
 import org.objectweb.asm.*
 import java.io.File
 import java.io.FileWriter
-import kotlin.collections.HashSet
 
 class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNative: Boolean): ClassVisitor(Opcodes.ASM7) {
     lateinit var classModel: ClassModel
@@ -67,7 +66,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                 // Skip method overrides unless native
                 var baseClass = classModel.superClass
                 while (baseClass != null) {
-                    if (baseClass.methods.containsKey(Pair(unescapedName, descriptor))) {
+                    if (baseClass.methods.contains(method)) {
                         return null
                     }
                     baseClass = baseClass.superClass
@@ -75,7 +74,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             }
         }
 
-        classModel.methods[Pair(method.unescapedName, method.descriptor)] = method
+        classModel.methods.add(method)
         return null
     }
 
@@ -96,7 +95,6 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         writeOpenNamespace()
         writeFieldClass()
         writeMethodClass()
-        writeMethodRegistration()
         writeCloseNamespace()
         writeFooter()
     }
@@ -113,7 +111,6 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         writer.writeln("#include \"whatjni/array.h\"")
         writer.writeln("#include \"whatjni/no_destroy.h\"")
         writer.writeln("#include \"whatjni/ref.h\"")
-        writer.writeln()
 
         val superClass = classModel.superClass
         if (superClass != null) {
@@ -153,7 +150,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             recurseType(field.type)
         }
 
-        for ((_, method) in classModel.methods) {
+        for (method in classModel.methods) {
             recurseType(method.type.returnType)
             for (argType in method.type.argumentTypes) {
                 recurseType(argType)
@@ -320,35 +317,34 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         writer.writeln_lr("public:")
         writer.writeln("typedef var_$unqualifiedClassName var;")
 
+        val staticAsserts = sortedSetOf<String>()
         val superClass = classModel.superClass
         if (superClass != null) {
-            writeStaticAssign(superClass)
+            staticAsserts.add(superClass.escapedName)
         }
-        val assigns = HashSet<ClassModel>()
         val todo = arrayListOf(classModel)
         while (!todo.isEmpty()) {
             val classModel = todo.removeLast()
             for (iface in classModel.interfaces) {
-                if (assigns.add(iface)) {
+                if (staticAsserts.add(iface.escapedName)) {
                     todo.add(iface)
                 }
             }
-            writeStaticAssign(classModel)
+        }
+
+        for (escapedName in staticAsserts) {
+            writer.writeln("static void static_assert_assignable($escapedName*) {}")
         }
         writer.writeln()
 
-        for ((_, method) in classModel.methods) {
+        for (method in classModel.methods) {
             writeMethod(method)
         }
 
-        writer.writeln_lr("public:")
-        writer.writeln("static void register_natives();")
+        writeMethodRegistration()
+
         writer.writeln_l("};")
         writer.writeln()
-    }
-
-    fun writeStaticAssign(assignToModel: ClassModel) {
-        writer.writeln("static void static_assert_assignable(${assignToModel.escapedName}*) {}")
     }
 
     fun writeMethod(method: MethodModel) {
@@ -488,25 +484,27 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
     }
 
     private fun writeMethodRegistration() {
-        writer.writeln_r("inline void ${classModel.escapedClassName}::register_natives() {")
-        writer.writeln_r("const static JNINativeMethod methods[] = {")
+        writer.writeln_lr("public:")
+        writer.writeln_r("static void register_natives() {")
 
-        var numMethods = 0
-        for ((_, method) in classModel.methods) {
-            method.apply {
-                if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
-                    writer.writeln("{(char*) \"$unescapedName\", (char*) \"$descriptor\", (void*) &${classModel.escapedName}::$jniName },")
-                    ++numMethods
+        val nativeMethods = classModel.methods.filter { implementsNative && (it.access and Opcodes.ACC_NATIVE) != 0 }
+        if (!nativeMethods.isEmpty()) {
+            writer.writeln_r("const static JNINativeMethod methods[] = {")
+
+            for (method in classModel.methods) {
+                method.apply {
+                    if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
+                        writer.writeln("{(char*) \"$unescapedName\", (char*) \"$descriptor\", (void*) &${classModel.escapedName}::$jniName },")
+                    }
                 }
             }
+
+            writer.writeln_l("};")
+            writer.writeln("const static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+            writer.writeln("whatjni::register_natives(clazz, methods, ${nativeMethods.size});")
         }
 
-        writer.writeln("{ nullptr, nullptr, nullptr },")
-        writer.writeln_l("};")
-        writer.writeln("const static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
-        writer.writeln("whatjni::register_natives(clazz, methods, $numMethods);")
         writer.writeln_l("}")
-        writer.writeln()
     }
 
     private fun writeParameters(type: Type) {
