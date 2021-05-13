@@ -92,18 +92,15 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
     fun generate() {
         writeHeader()
         writeForwardDeclarations()
-        writeOpenNamespace(writer, classModel.nameParts.take(classModel.nameParts.size - 1))
+        val namespaceParts = classModel.nameParts.take(classModel.nameParts.size - 1)
+        writeOpenNamespace(writer, namespaceParts)
         writeFieldClass()
         writeMethodClass()
-        writeCloseNamespace(writer, classModel.nameParts.take(classModel.nameParts.size - 1))
+        writeCloseNamespace(writer, namespaceParts)
         writeFooter()
     }
 
     fun writeHeader() {
-        if (implementsNative) {
-            writer.writeln("// Implements native")
-        }
-
         writer.writeln("// Don't edit; automatically generated.")
         writer.writeln("#ifndef ${classModel.sentryMacro}")
         writer.writeln("#define ${classModel.sentryMacro}")
