@@ -1,7 +1,10 @@
 package whatjni
 
 import ClassMap
-import com.google.gson.Gson
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.ainslec.picocog.PicoWriter
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.*
@@ -11,11 +14,16 @@ import org.gradle.work.ChangeType
 import org.gradle.work.Incremental
 import org.gradle.work.InputChanges
 import org.objectweb.asm.Opcodes
-import java.io.*
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileReader
+import java.io.FileWriter
+import java.io.FileNotFoundException
 import java.lang.IllegalArgumentException
 import java.net.URLClassLoader
 import javax.inject.Inject
 
+@Serializable
 data class Index(val units: HashMap<String, ArrayList<String>> = hashMapOf())
 
 abstract class GenerateJNIBindingsTask : DefaultTask() {
@@ -44,10 +52,8 @@ abstract class GenerateJNIBindingsTask : DefaultTask() {
 
     @TaskAction
     fun perform(changes: InputChanges) {
-        val gson = Gson()
-
         val indexFile = generatedDir.file("index.json").get().asFile
-        val index = readIndex(gson, indexFile)
+        val index = readIndex(indexFile)
         val dependencies = updateIndexDependencies(changes, index)
 
         URLClassLoader((classpath.map { it.toURI().toURL() }).toTypedArray()).use { loader ->
@@ -59,26 +65,21 @@ abstract class GenerateJNIBindingsTask : DefaultTask() {
             writeRegisterNatives(classMap)
         }
 
-        writeIndex(gson, indexFile, index)
+        writeIndex(indexFile, index)
     }
 
-    private fun readIndex(gson: Gson, indexFile: File): Index {
-        // TODO: use kotlin serialization
-        var index = Index()
+    private fun readIndex(indexFile: File): Index {
         try {
-            index = BufferedReader(FileReader(indexFile)).use {
-                gson.fromJson(it, Index::class.java)
-            }
+            val index = Json.decodeFromString<Index>(indexFile.readText(Charsets.UTF_8))
             indexFile.delete()
+            return index
         } catch (e: FileNotFoundException) {
         }
-        return index
+        return Index()
     }
 
-    private fun writeIndex(gson: Gson, indexFile: File, index: Index) {
-        BufferedWriter(FileWriter(indexFile)).use {
-            gson.toJson(index, it)
-        }
+    private fun writeIndex(indexFile: File, index: Index) {
+        indexFile.writeText(Json.encodeToString(index), Charsets.UTF_8)
     }
 
     private fun updateIndexDependencies(
