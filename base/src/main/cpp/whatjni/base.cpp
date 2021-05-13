@@ -164,12 +164,12 @@ void initialize_thread(JNIEnv* env) {
 
     pthread_attr_t attr;
     if (pthread_getattr_np(pthread_self(), &attr) != 0) {
-        cerr << "pthread_getattr_np failed\n";
+        std::cerr << "pthread_getattr_np failed\n";
         abort();
     }
     
     if (pthread_attr_getstack(&attr, (void**) &g_stack_low, &g_stack_size) != 0) {
-        cerr << "pthread_attr_getstack failed\n";
+        std::cerr << "pthread_attr_getstack failed\n";
         abort();
     }
     
