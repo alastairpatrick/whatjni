@@ -92,10 +92,10 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
     fun generate() {
         writeHeader()
         writeForwardDeclarations()
-        writeOpenNamespace()
+        writeOpenNamespace(writer, classModel.nameParts.take(classModel.nameParts.size - 1))
         writeFieldClass()
         writeMethodClass()
-        writeCloseNamespace()
+        writeCloseNamespace(writer, classModel.nameParts.take(classModel.nameParts.size - 1))
         writeFooter()
     }
 
@@ -173,14 +173,6 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             writer.writeln(line)
         }
 
-        writer.writeln()
-    }
-
-    fun writeOpenNamespace() {
-        val nameParts = classModel.nameParts
-        for (i in 0 .. nameParts.size - 2) {
-            writer.writeln("namespace ${nameParts[i]} {")
-        }
         writer.writeln()
     }
 
@@ -531,14 +523,6 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         } else {
             writer.writeln_lr("public:")
         }
-    }
-
-    fun writeCloseNamespace() {
-        val nameParts = classModel.nameParts
-        for (i in nameParts.size - 2 downTo 0) {
-            writer.writeln("}  // namespace ${nameParts[i]}")
-        }
-        writer.writeln()
     }
 
     fun writeFooter() {

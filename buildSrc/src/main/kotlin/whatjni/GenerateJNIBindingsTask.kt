@@ -2,6 +2,7 @@ package whatjni
 
 import ClassMap
 import com.google.gson.Gson
+import org.ainslec.picocog.PicoWriter
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.*
 import org.gradle.api.provider.SetProperty
@@ -9,6 +10,7 @@ import org.gradle.api.tasks.*
 import org.gradle.work.ChangeType
 import org.gradle.work.Incremental
 import org.gradle.work.InputChanges
+import org.objectweb.asm.Opcodes
 import java.io.*
 import java.lang.IllegalArgumentException
 import java.net.URLClassLoader
@@ -42,12 +44,27 @@ abstract class GenerateJNIBindingsTask : DefaultTask() {
 
     @TaskAction
     fun perform(changes: InputChanges) {
-        System.out.println("Classpath: ${classpath.asPath}")
         val gson = Gson()
 
+        val indexFile = generatedDir.file("index.json").get().asFile
+        val index = readIndex(gson, indexFile)
+        val dependencies = updateIndexDependencies(changes, index)
+
+        URLClassLoader((classpath.map { it.toURI().toURL() }).toTypedArray()).use { loader ->
+            val classMap = ClassMap(generatedDir.get().asFile, loader, nativePackages.get())
+            for (className in dependencies) {
+                classMap.get(className)
+            }
+
+            writeRegisterNatives(classMap)
+        }
+
+        writeIndex(gson, indexFile, index)
+    }
+
+    private fun readIndex(gson: Gson, indexFile: File): Index {
         // TODO: use kotlin serialization
         var index = Index()
-        val indexFile = generatedDir.file("index.json").get().asFile
         try {
             index = BufferedReader(FileReader(indexFile)).use {
                 gson.fromJson(it, Index::class.java)
@@ -55,7 +72,19 @@ abstract class GenerateJNIBindingsTask : DefaultTask() {
             indexFile.delete()
         } catch (e: FileNotFoundException) {
         }
+        return index
+    }
 
+    private fun writeIndex(gson: Gson, indexFile: File, index: Index) {
+        BufferedWriter(FileWriter(indexFile)).use {
+            gson.toJson(index, it)
+        }
+    }
+
+    private fun updateIndexDependencies(
+        changes: InputChanges,
+        index: Index
+    ): HashSet<String> {
         val projectPath = projectLayout.projectDirectory.asFile.toPath()
         val dependencies = hashSetOf<String>()
         for (change in changes.getFileChanges(source)) {
@@ -83,17 +112,7 @@ abstract class GenerateJNIBindingsTask : DefaultTask() {
                 }
             }
         }
-
-        URLClassLoader((classpath.map { it.toURI().toURL() }).toTypedArray()).use { loader ->
-            val classMap = ClassMap(generatedDir.get().asFile, loader, nativePackages.get())
-            for (className in dependencies) {
-                classMap.get(className)
-            }
-        }
-
-        BufferedWriter(FileWriter(indexFile)).use {
-            gson.toJson(index, it)
-        }
+        return dependencies
     }
 
     private val importJavaRegex = Regex("""^\s*#include\s+"(.*)\.class\.h"\s*$""")
@@ -115,5 +134,52 @@ abstract class GenerateJNIBindingsTask : DefaultTask() {
             }
         }
         return ArrayList(dependencies)
+    }
+
+    private fun writeRegisterNatives(classMap: ClassMap) {
+        for (nativePackage in nativePackages.get()) {
+            val writer = PicoWriter()
+
+            val sentry = nativePackage.replace(".", "_") + "register_natives_SENTRY_"
+            writer.writeln("#ifndef ${sentry}")
+            writer.writeln("#define ${sentry}")
+            writer.writeln()
+
+            val includeWriter = writer.createDeferredWriter()
+            writer.writeln()
+
+            val nameParts = nativePackage.split(".")
+            writeOpenNamespace(writer, nameParts)
+
+            writer.writeln_r("inline void register_natives() {")
+
+            val prefix = nativePackage.replace(".", "/") + "/"
+            for ((className, classModel) in classMap.classes.tailMap(nativePackage)) {
+                if (!className.startsWith(prefix)) {
+                    break
+                }
+
+                val nativeMethods = classModel.methods.filter { (it.access and Opcodes.ACC_NATIVE) != 0 }
+                if (nativeMethods.isEmpty()) {
+                    continue
+                }
+
+                includeWriter.writeln("#include \"${classModel.unescapedName}.class.h\"")
+                writer.writeln("${classModel.escapedName}::register_natives();")
+            }
+
+            writer.writeln_l("}")
+            writer.writeln()
+
+            writeCloseNamespace(writer, nameParts)
+
+            writer.writeln("#endif  // ${sentry}")
+
+            val registerNativesFile =
+                File(generatedDir.file(nativePackage.replace(".", "/")).get().asFile, "register_natives.h")
+            FileWriter(registerNativesFile).use {
+                it.write(writer.toString())
+            }
+        }
     }
 }

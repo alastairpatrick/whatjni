@@ -1,6 +1,8 @@
 package whatjni
 
-val simpleNameRegex = Regex("""[^/\.]+""")
+import org.ainslec.picocog.PicoWriter
+
+val simpleNameRegex = Regex("""[^/.]+""")
 
 fun escapeQualifiedName(name: String): String {
     return name.replace(simpleNameRegex, {
@@ -18,14 +20,28 @@ val keywordRegex = Regex(
 
 fun escapeSimpleName(name: String): String {
     if (keywordRegex.matches(name)) {
-        return "id_" + name;
+        return "id_" + name
     }
 
     if (preserveRegex.matches(name)) {
-        return name;
+        return name
     }
 
     return "esc_" + name.replace(escapeRegex, {
         "_" + it.value[0].toInt().toString(16)
     })
+}
+
+fun writeOpenNamespace(writer: PicoWriter, nameParts: List<String>) {
+    for (i in 0 .. nameParts.size - 1) {
+        writer.writeln("namespace ${nameParts[i]} {")
+    }
+    writer.writeln()
+}
+
+fun writeCloseNamespace(writer: PicoWriter, nameParts: List<String>) {
+    for (i in nameParts.size - 1 downTo 0) {
+        writer.writeln("}  // namespace ${nameParts[i]}")
+    }
+    writer.writeln()
 }

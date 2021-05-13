@@ -5,7 +5,7 @@ import java.io.File
 import java.io.FileWriter
 
 class ClassMap(val generatedDir: File, val loader: ClassLoader, val nativePackages: Set<String>) {
-    private val classes = HashMap<String, ClassModel>()
+    val classes = sortedMapOf<String, ClassModel>()
 
     fun get(className: String): ClassModel {
         val classModel = classes[className]

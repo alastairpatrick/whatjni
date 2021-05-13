@@ -1,4 +1,5 @@
 #include "whatjni/samples/Calculator.class.h"
+#include "whatjni/samples/register_natives.h"
 
 #include <iostream>
 
@@ -9,7 +10,7 @@ int main(int argc, const char** argv) {
     initialize_vm(vm_config(JNI_VERSION_1_8));
 
     try {
-        Calculator::register_natives();
+        whatjni::samples::register_natives();
 
         auto calculator = Calculator::new_object();
         auto result = calculator->calculate();
