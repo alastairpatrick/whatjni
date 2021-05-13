@@ -7,10 +7,6 @@
 #include <string>
 #include <vector>
 
-#ifdef _MSC_VER
-#pragma warning(disable: 4584)  // 'java::lang::String': base-class 'java::lang::Object' is already a base-class of 'java::io::Serializable'
-#endif
-
 #ifndef WHATJNI_LANG
     // https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
     #ifdef _MSC_VER
@@ -20,17 +16,13 @@
     #endif
 #endif
 
-#ifndef WHATJNI_BASE
-    #ifdef _WIN32
-        #ifdef WHATJNI_BASE_EXPORT
-            #define WHATJNI_BASE __declspec(dllexport)
-        #else
-            #define WHATJNI_BASE __declspec(dllimport)
-        #endif
-    #else
-        #define WHATJNI_BASE
-    #endif
+#if !defined(WHATJNI_BASE) && defined(_WIN32) && defined(WHATJNI_BASE_EXPORT)
+    #define WHATJNI_BASE __declspec(dllexport)
 #endif  // ifndef WHATJNI_BASE
+
+#ifndef WHATJNI_BASE
+    #define WHATJNI_BASE
+#endif
 
 #ifndef WHATJNI_IF_PROPERTY
     #if defined(_MSC_VER)
