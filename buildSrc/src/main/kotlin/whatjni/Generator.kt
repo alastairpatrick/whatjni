@@ -108,10 +108,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         writer.writeln("#ifndef ${classModel.sentryMacro}")
         writer.writeln("#define ${classModel.sentryMacro}")
         writer.writeln()
-        writer.writeln("#include \"whatjni/array.h\"")
-        writer.writeln("#include \"whatjni/no_destroy.h\"")
-        writer.writeln("#include \"whatjni/ref.h\"")
-        writer.writeln("#include <limits>")
+        writer.writeln("#include \"whatjni/generated.h\"")
 
         val superClass = classModel.superClass
         if (superClass != null) {
