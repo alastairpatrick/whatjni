@@ -49,11 +49,11 @@ int main(int argc, const char **argv) {
             statistics->addValue(number);
         }
 
-        auto summary = statistics->summary;
+        auto summary = statistics->getSummary();
 
         std::ostringstream stream;
-        stream << "Average is " << summary->mean << "\n";
-        stream << "Variance is " << summary->variance << "\n";
+        stream << "Average is " << summary->getMean() << "\n";
+        stream << "Variance is " << summary->getVariance() << "\n";
         System::out->print(ref<String>(stream.str()));
 
     } catch (const jvm_exception& e) {
