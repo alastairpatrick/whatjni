@@ -70,6 +70,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         writeFieldClass()
         writeMethodClass()
         writeCloseNamespace(writer, namespaceParts)
+        writeStaticAsserts()
         writeFooter()
     }
 
@@ -276,26 +277,6 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         writer.writeln_r("class $unqualifiedClassName: public var_$unqualifiedClassName {")
         writer.writeln_lr("public:")
         writer.writeln("typedef var_$unqualifiedClassName var;")
-
-        val staticAsserts = sortedSetOf<String>()
-        val superClass = classModel.superClass
-        if (superClass != null) {
-            staticAsserts.add(superClass.escapedName)
-        }
-        val todo = arrayListOf(classModel)
-        while (!todo.isEmpty()) {
-            val classModel = todo.removeLast()
-            for (iface in classModel.interfaces) {
-                if (staticAsserts.add(iface.escapedName)) {
-                    todo.add(iface)
-                }
-            }
-        }
-
-        for (escapedName in staticAsserts) {
-            writer.writeln("static void static_assert_assignable($escapedName*) {}")
-        }
-        writer.writeln()
 
         for (method in classModel.methods) {
             writeMethod(method)
@@ -514,6 +495,31 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         } else {
             writer.writeln_lr("public:")
         }
+    }
+
+    fun writeStaticAsserts() {
+        val staticAsserts = sortedSetOf<String>()
+        val todo = arrayListOf(classModel)
+        while (!todo.isEmpty()) {
+            val classModel = todo.removeLast()
+            if (classModel.superClass != null && classModel.superClass.superClass != null) {
+                if (staticAsserts.add(classModel.superClass.escapedName)) {
+                    todo.add(classModel.superClass)
+                }
+            }
+            for (iface in classModel.interfaces) {
+                if (staticAsserts.add(iface.escapedName)) {
+                    todo.add(iface)
+                }
+            }
+        }
+
+        writer.writeln_r("namespace whatjni {")
+        for (escapedName in staticAsserts) {
+            writer.writeln("inline void static_assert_instanceof(${classModel.escapedName}*, $escapedName*) {}")
+        }
+        writer.writeln_l("}  // namespace whatjni")
+        writer.writeln()
     }
 
     fun writeFooter() {

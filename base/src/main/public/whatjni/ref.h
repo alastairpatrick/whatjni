@@ -8,11 +8,20 @@
 
 namespace java {
 namespace lang {
+
+class Object;
 class String;
+
 }  // namespace lang
 }  // namespace java
 
 namespace whatjni {
+
+template <typename T>
+void static_assert_instanceof(T*, T*) {}
+
+template <typename T>
+void static_assert_instanceof(T*, java::lang::Object*) {}
 
 static const struct {} own_ref;
 
@@ -40,7 +49,7 @@ public:
         new_auto_ref((jobject*) &obj, (jobject) rhs);
     }
     template <typename U>ref(U* rhs) {
-        T* t = (U*) nullptr;  // static assertion
+        static_assert_instanceof((U*) nullptr, (T*) nullptr);
         new_auto_ref((jobject*) &obj, (jobject) rhs);
     }
 
@@ -48,17 +57,17 @@ public:
         new_auto_ref((jobject*) &obj, (jobject) rhs.obj);
     }
     template<typename U> ref(const ref<U>& rhs) {
-        T* t = (U*) nullptr;  // static assertion
+        static_assert_instanceof((U*) nullptr, (T*) nullptr);
         new_auto_ref((jobject*) &obj, (jobject) rhs.obj);
     }
 
     ref(const char* str, size_t length) {
-        T* t = (::java::lang::String*) nullptr;  // static assert
+        static_assert_instanceof((::java::lang::String*) nullptr, (T*) nullptr);
         jobject local = new_utf8_string(str, length);
         move_auto_ref((jobject*) &obj, &local);
     }
     ref(const char* str) {
-        T* t = (::java::lang::String*) nullptr;  // static assert
+        static_assert_instanceof((::java::lang::String*) nullptr, (T*) nullptr);
         jobject local = new_utf8_string(str);
         move_auto_ref((jobject*) &obj, &local);
     }
@@ -66,7 +75,7 @@ public:
 
 #if WHATJNI_LANG >= 201703L
     ref(std::string_view str) {
-        T* t = (::java::lang::String*) nullptr;  // static assert
+        static_assert_instanceof((::java::lang::String*) nullptr, (T*) nullptr);
         jobject local = new_string((const jchar*) str.data(), str.length());
         move_auto_ref((jobject*) &obj, &local);
     }
@@ -76,7 +85,7 @@ public:
         move_auto_ref((jobject*) &obj, (jobject*) &rhs.obj);
     }
     template<typename U> ref(ref<U>&& rhs) {
-        T* t = (U*) nullptr;  // static assertion
+        static_assert_instanceof((U*) nullptr, (T*) nullptr);
         move_auto_ref((jobject*) &obj, (jobject*) &rhs.obj);
     }
 
@@ -97,7 +106,7 @@ public:
         return *this;
     }
     template<typename U> ref& operator=(const ref<U>& rhs) {
-        T* t = (U*) nullptr;  // static assertion
+        static_assert_instanceof((U*) nullptr, (T*) nullptr);
         delete_auto_ref((jobject*) &obj);
         new_auto_ref((jobject*) &obj, (jobject) rhs.obj);
         return *this;
@@ -111,7 +120,7 @@ public:
         return *this;
     }
     template<typename U> ref& operator=(ref<U>&& rhs) {
-        T* t = (U*) nullptr;  // static assertion
+        static_assert_instanceof((U*) nullptr, (T*) nullptr);
         delete_auto_ref((jobject*) &obj);
         move_auto_ref((jobject*) &obj, (jobject*) &rhs.obj);
         return *this;

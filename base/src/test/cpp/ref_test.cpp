@@ -5,38 +5,30 @@
 #include <algorithm>
 #include <unordered_map>
 
-// TODO: remove once automatically generated
-namespace java {
-namespace lang {
+/*
+std::string to_std_string() {
+    // TODO: with C++17, getStringUTFRegion could copy directly into std::string buffer.
+    struct Mapper {
+        jstring s;
+        jsize length;
+        const jchar* chars;
 
-class String {
-public:
-    std::string to_std_string() {
-        // TODO: with C++17, getStringUTFRegion could copy directly into std::string buffer.
-        struct Mapper {
-            jstring s;
-            jsize length;
-            const jchar* chars;
+        Mapper(jstring s): s(s) {
+            length = whatjni::get_string_length(s);
+            jboolean is_copy;
+            chars = whatjni::get_string_chars(s, &is_copy);
+        }
+        ~Mapper() {
+            whatjni::release_string_chars(s, chars);
+        }
+    };
 
-            Mapper(jstring s): s(s) {
-                length = whatjni::get_string_length(s);
-                jboolean is_copy;
-                chars = whatjni::get_string_chars(s, &is_copy);
-            }
-            ~Mapper() {
-                whatjni::release_string_chars(s, chars);
-            }
-        };
-
-        Mapper mapper((jstring) this);
-        std::string result;
-        utf8::utf16to8(mapper.chars, mapper.chars + mapper.length, std::back_inserter(result));
-        return result;
-    }
-};
-
-}  // lang
-}  // java
+    Mapper mapper((jstring) this);
+    std::string result;
+    utf8::utf16to8(mapper.chars, mapper.chars + mapper.length, std::back_inserter(result));
+    return result;
+}
+*/
 
 namespace whatjni {
 
@@ -48,8 +40,11 @@ struct Point;
 
 struct Base {
 };
-struct Derived: Base {
+
+struct Derived {
 };
+
+inline void static_assert_instanceof(Derived*, Base*) {}
 
 }  // namespace anonymous
 
@@ -256,7 +251,7 @@ TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_default_value_eq
     ASSERT_EQ(map[ref2], 2);
     ASSERT_EQ(map[ref3], 3);
 }
-
+/*
 TEST_F(RefTest, c_string_to_object_ref) {
     ref<java::lang::String> str("hello");
     EXPECT_EQ(str->to_std_string(), "hello");
@@ -272,5 +267,5 @@ TEST_F(RefTest, std_string_to_object_ref) {
     str = std::string("foo");
     EXPECT_EQ(str->to_std_string(), "foo");
 }
-
+*/
 }  // namespace whatjni
