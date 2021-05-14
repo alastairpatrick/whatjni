@@ -1,6 +1,7 @@
 package whatjni
 
 import org.ainslec.picocog.PicoWriter
+import org.objectweb.asm.Opcodes
 
 val simpleNameRegex = Regex("""[^/.]+""")
 
@@ -44,4 +45,13 @@ fun writeCloseNamespace(writer: PicoWriter, nameParts: List<String>) {
         writer.writeln("}  // namespace ${nameParts[i]}")
     }
     writer.writeln()
+}
+
+fun rankAccess(access: Int): Int {
+    return when (access and (Opcodes.ACC_PUBLIC or Opcodes.ACC_PROTECTED or Opcodes.ACC_PRIVATE)) {
+        Opcodes.ACC_PUBLIC -> 0
+        Opcodes.ACC_PROTECTED -> 2
+        Opcodes.ACC_PRIVATE -> 3
+        else -> 1  // default access
+    }
 }

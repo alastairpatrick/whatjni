@@ -1,7 +1,7 @@
 plugins {
     id 'java-gradle-plugin'
-    id 'org.jetbrains.kotlin.jvm' version '1.5.0'
-    id 'org.jetbrains.kotlin.plugin.serialization' version '1.5.0'
+    id 'org.jetbrains.kotlin.jvm' version '1.4.31'
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.4.31'
 }
 
 repositories {
@@ -12,8 +12,9 @@ dependencies {
     implementation gradleApi()
     implementation "net.java.dev.jna:jna:5.8.0"
     implementation "org.ainslec:picocog:1.0.7"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.5.0"
-    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.2.1"
+    implementation "org.jetbrains.kotlin:kotlin-reflect:1.4.31"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.4.31"
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.1.0"
     implementation "org.ow2.asm:asm:9.1"
 }
 
