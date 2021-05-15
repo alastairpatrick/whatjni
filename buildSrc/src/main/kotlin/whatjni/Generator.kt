@@ -222,7 +222,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                 headerWriter.writeln_l("};")
                 headerWriter.writeln("static const access_$escapedName $escapedName;")
 
-                implWriter.writeln("const var_${classModel.escapedClassName}::access_$escapedName ${classModel.escapedClassName}::$escapedName;")
+                implWriter.writeln("const var_${classModel.escapedClassName}::access_$escapedName var_${classModel.escapedClassName}::$escapedName;")
             } else {
                 headerWriter.writeln("$modifiers$cppType get_$escapedName();")
 
