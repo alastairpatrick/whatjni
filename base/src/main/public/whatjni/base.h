@@ -136,10 +136,6 @@ WHATJNI_BASE jobject new_weak_global_ref(jobject obj);
 WHATJNI_BASE void delete_weak_global_ref(jobject obj);
 WHATJNI_BASE jobjectRefType get_object_ref_type(jobject obj);
 
-WHATJNI_BASE void new_auto_ref(jobject* refref, jobject obj);
-WHATJNI_BASE void move_auto_ref(jobject* to, jobject* from);
-WHATJNI_BASE void delete_auto_ref(jobject* refref);
-
 WHATJNI_BASE void print_exception();
 
 

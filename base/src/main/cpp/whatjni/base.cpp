@@ -8,13 +8,11 @@
 
 #ifdef _WIN32
     #include <windows.h>
-    #include <winnt.h>
 #else
     #ifndef _GNU_SOURCE
         #define _GNU_SOURCE
     #endif
     #include <dlfcn.h>
-    #include <pthread.h>
 #endif
 
 namespace whatjni {
@@ -25,10 +23,6 @@ using std::string;
 
 typedef HMODULE Module;
 
-// Windows 8 and higher
-typedef void (WINAPI *GetCurrentThreadStackLimitsFunc)(PULONG_PTR _lowLimit, PULONG_PTR HighLimit);
-static GetCurrentThreadStackLimitsFunc GetCurrentThreadStackLimits;
-
 #else  // assume POSIX
 
 typedef void* Module;
@@ -38,8 +32,6 @@ typedef void* Module;
 static Module g_vm_module;
 static JavaVM* g_vm;
 static thread_local JNIEnv* g_env;
-static thread_local const char* g_stack_low;
-static thread_local size_t g_stack_size;
 
 typedef jint (JNICALL *JNI_CreateJavaVMFunc)(JavaVM **pvm, void **penv, void *args);
 static JNI_CreateJavaVMFunc JNI_CreateJavaVM;
@@ -130,51 +122,7 @@ static void* lookup_module_symbol(Module module, const char* name) {
 }
 
 void initialize_thread(JNIEnv* env) {
-    if (g_env) {
-        return;
-    }
-
     g_env = env;
-
-#ifdef _WIN32
-    if (GetCurrentThreadStackLimits) {
-        // Windows 8 and higher.
-        const char* stackHigh;
-        GetCurrentThreadStackLimits((PULONG_PTR) &g_stack_low, (PULONG_PTR) &stackHigh);
-        g_stack_size = stackHigh - g_stack_low;
-    } else {
-        // No need for GetProcAddress; this is an inline function defined in winnt.h.
-        const char** teb = (const char**) NtCurrentTeb();
-
-        // This makes assumptions about the layout of the WIN32 Thread Information Block, which could change. This code
-        // will only run on versions prior to Windows 8 though, so such a change seems very unlikely. At the time of
-        // writing, this actually still works on NT based Windows up to and including Windows 10 but no reason to use it
-        // from Windows 8 onward.
-        g_stack_low = teb[2];
-        g_stack_size = teb[1] - teb[2];
-    }
-    
-#elif __APPLE__
-
-    pthread_t self = pthread_self();
-    g_stack_size = pthread_get_stacksize_np(self);
-    g_stack_low = ((const char*) pthread_get_stackaddr_np(self)) - g_stack_size;
-
-#else
-
-    pthread_attr_t attr;
-    if (pthread_getattr_np(pthread_self(), &attr) != 0) {
-        std::cerr << "pthread_getattr_np failed\n";
-        abort();
-    }
-    
-    if (pthread_attr_getstack(&attr, (void**) &g_stack_low, &g_stack_size) != 0) {
-        std::cerr << "pthread_attr_getstack failed\n";
-        abort();
-    }
-    
-    pthread_attr_destroy(&attr);
-#endif  // _WIN32/__APPLE__
 }
 
 void initialize_thread() {
@@ -215,16 +163,6 @@ static void load_modules(const std::string& path) {
     }
 
     JNI_CreateJavaVM = (JNI_CreateJavaVMFunc) lookup_module_symbol(g_vm_module, "JNI_CreateJavaVM");
-
-#ifdef _WIN32
-    Module kernel32_module = open_module("kernel32.dll");
-    if (!kernel32_module) {
-        check_error(JNI_ERR);
-    }
-
-    GetCurrentThreadStackLimits = (GetCurrentThreadStackLimitsFunc) lookup_module_symbol(kernel32_module,
-                                                                                         "GetCurrentThreadStackLimits");
-#endif
 }
 
 void initialize_vm(const vm_config& config) {
@@ -385,44 +323,6 @@ void delete_weak_global_ref(jobject obj) {
 
 jobjectRefType get_object_ref_type(jobject obj) {
     return check_exception(g_env->GetObjectRefType(obj));
-}
-
-static bool is_auto_ref_local(jobject* refref) {
-    const char* address = (const char*) refref;
-    return address - g_stack_low < g_stack_size;
-}
-
-void new_auto_ref(jobject* refref, jobject obj) {
-    if (is_auto_ref_local(refref)) {
-        *refref = new_local_ref(obj);
-    } else {
-        *refref = new_global_ref(obj);
-    }
-}
-
-void move_auto_ref(jobject* to, jobject* from) {
-    bool toLocal = is_auto_ref_local(to);
-    bool fromLocal = is_auto_ref_local(from);
-
-    if (toLocal == fromLocal) {
-        *to = *from;
-    } else if (toLocal) {
-        *to = new_local_ref(*from);
-        delete_global_ref(*from);
-    } else {
-        *to = new_global_ref(*from);
-        delete_local_ref(*from);
-    }
-
-    *from = nullptr;
-}
-
-void delete_auto_ref(jobject* refref) {
-    if (is_auto_ref_local(refref)) {
-        delete_local_ref(*refref);
-    } else {
-        delete_global_ref(*refref);
-    }
 }
 
 void print_exception() {
