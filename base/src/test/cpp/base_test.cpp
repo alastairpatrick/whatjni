@@ -1,17 +1,12 @@
 #include "whatjni/base.h"
+#include "whatjni/local_frame.h"
 
 #include "gtest/gtest.h"
 
 namespace whatjni {
 
 struct BaseTest: testing::Test {
-    BaseTest() {
-        push_local_frame(16);
-    }
-
-    ~BaseTest() {
-        pop_local_frame();
-    }
+    local_frame frame;
 };
 
 TEST_F(BaseTest, get_super_class) {

@@ -221,7 +221,10 @@ void shutdown_vm() {
 }
 
 jclass find_class(const char* name) {
-    return check_exception(g_env->FindClass(name));
+    jclass local = check_exception(g_env->FindClass(name));
+    jclass global = (jclass) new_global_ref(local);
+    delete_local_ref(local);
+    return global;
 }
 
 jclass get_super_class(jclass clazz) {

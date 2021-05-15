@@ -1,4 +1,5 @@
 #include "whatjni/weak_ref.h"
+#include "whatjni/local_frame.h"
 
 #include "gtest/gtest.h"
 
@@ -21,17 +22,13 @@ struct Derived: Base {
 
 struct WeakRefTest: testing::Test {
     WeakRefTest() {
-        push_local_frame(16);
         clazz = find_class("java/awt/Point");
         obj1 = (Point*) alloc_object(clazz);
         obj2 = (Point*) alloc_object(clazz);
         derivedObj = (Derived*) alloc_object(clazz);
     }
 
-    ~WeakRefTest() {
-        pop_local_frame();
-    }
-
+    local_frame frame;
     jclass clazz;
     Point* obj1;
     Point* obj2;

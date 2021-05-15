@@ -1,4 +1,5 @@
 #include "whatjni/array.h"
+#include "whatjni/local_frame.h"
 
 #include "gtest/gtest.h"
 
@@ -26,6 +27,8 @@ struct ArrayTest: testing::Test {
         nested_int_array = new_array<array<jint>*>(1);
         nested_obj_array = new_array<array<Point*>*>(1);
     }
+
+    local_frame frame;
     array<jint>* int_array;
     array<Point*>* obj_array;
     array<array<jint>*>* nested_int_array;
@@ -104,7 +107,7 @@ TEST_F(ArrayTest, access_read_only_critically_mapped_elements) {
     }
 }
 
-TEST_F(ArrayTest, new_object_array) {
+TEST_F(ArrayTest, object_array) {
     EXPECT_TRUE(obj_array);
     EXPECT_EQ(obj_array->get_length(), 3);
 }
@@ -118,6 +121,26 @@ TEST_F(ArrayTest, set_then_get_object_element) {
     for (int i = 0; i < obj_array->get_length(); ++i) {
         EXPECT_TRUE(is_same_object((jobject) obj_array->get_data(i), (jobject) obj));
     }
+}
+
+TEST_F(ArrayTest, nested_primitive_array) {
+    EXPECT_TRUE(nested_int_array);
+    EXPECT_EQ(nested_int_array->get_length(), 1);
+}
+
+TEST_F(ArrayTest, set_then_get_nested_int_element) {
+    nested_int_array->set_data(0, int_array);
+    EXPECT_TRUE(is_same_object((jobject) nested_int_array->get_data(0), (jobject) int_array));
+}
+
+TEST_F(ArrayTest, nested_obj_array) {
+    EXPECT_TRUE(nested_obj_array);
+    EXPECT_EQ(nested_obj_array->get_length(), 1);
+}
+
+TEST_F(ArrayTest, set_then_get_nested_object_element) {
+    nested_obj_array->set_data(0, obj_array);
+    EXPECT_TRUE(is_same_object((jobject) nested_obj_array->get_data(0), (jobject) obj_array));
 }
 
 }  // namespace whatjni

@@ -1,4 +1,5 @@
 #include "whatjni/ref.h"
+#include "whatjni/local_frame.h"
 
 #include "gtest/gtest.h"
 
@@ -51,17 +52,13 @@ inline void static_assert_instanceof(Derived*, Base*) {}
 
 struct RefTest: testing::Test {
     RefTest() {
-        push_local_frame(16);
         clazz = find_class("java/awt/Point");
         obj1 = (Point*) alloc_object(clazz);
         obj2 = (Point*) alloc_object(clazz);
         derivedObj = (Derived*) alloc_object(clazz);
     }
 
-    ~RefTest() {
-        pop_local_frame();
-    }
-
+    local_frame frame;
     jclass clazz;
     Point* obj1;
     Point* obj2;
