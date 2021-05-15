@@ -8,11 +8,23 @@
 #include <vector>
 
 #ifndef WHATJNI_LANG
+    // VC++ is not compliant with C++ spec in setting the __cplusplus macro.
     // https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
     #ifdef _MSC_VER
         #define WHATJNI_LANG _MSVC_LANG
     #else
         #define WHATJNI_LANG __cplusplus
+    #endif
+#endif
+
+#ifndef WHATJNI_EMPTY_BASES
+    // C++11 requires that the empty base class optimization be applied to standard layout types. VC++ is not
+    // compliant with the spec in this regard.
+    // https://devblogs.microsoft.com/cppblog/optimizing-the-layout-of-empty-base-classes-in-vs2015-update-2-3/
+    #ifdef _MSC_VER
+        #define WHATJNI_EMPTY_BASES __declspec(empty_bases)
+    #else
+        #define WHATJNI_EMPTY_BASES
     #endif
 #endif
 
@@ -196,8 +208,8 @@ WHATJNI_EACH_JAVA_TYPE()
 #undef X
 
 WHATJNI_BASE jstring new_string(const jchar* str, jsize length);
-WHATJNI_BASE jstring new_utf8_string(const char* str, jsize length);
-WHATJNI_BASE jstring new_utf8_string(const char* str);
+WHATJNI_BASE jstring new_utf_string(const char* str, jsize length);
+WHATJNI_BASE jstring new_utf_string(const char* str);
 WHATJNI_BASE jsize get_string_length(jstring str);
 WHATJNI_BASE const jchar* get_string_chars(jstring str, jboolean* is_copy);
 WHATJNI_BASE void release_string_chars(jstring str, const jchar* chars);

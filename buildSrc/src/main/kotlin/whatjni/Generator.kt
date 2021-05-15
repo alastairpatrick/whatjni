@@ -11,7 +11,8 @@ import java.io.FileWriter
 
 class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNative: Boolean): ClassVisitor(Opcodes.ASM7) {
     lateinit var classModel: ClassModel
-    val writer = PicoWriter()
+    val headerWriter = PicoWriter()
+    val implWriter = PicoWriter()
 
     override fun visit(
         version: Int,
@@ -54,11 +55,15 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
     override fun visitEnd() {
         generate()
 
-        val generatedFile = generatedDir.resolve(classModel.unescapedName + ".class.h")
-        generatedFile.parentFile.mkdirs()
+        val generatedHeaderFile = generatedDir.resolve(classModel.unescapedName + ".class.h")
+        generatedHeaderFile.parentFile.mkdirs()
+        FileWriter(generatedHeaderFile).use {
+            it.write((headerWriter.toString()))
+        }
 
-        FileWriter(generatedFile).use {
-            it.write((writer.toString()))
+        val generatedCPPFile = generatedDir.resolve(classModel.unescapedName + ".class.impl.h")
+        FileWriter(generatedCPPFile).use {
+            it.write((implWriter.toString()))
         }
     }
 
@@ -66,27 +71,37 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         writeHeader()
         writeForwardDeclarations()
         val namespaceParts = classModel.nameParts.take(classModel.nameParts.size - 1)
-        writeOpenNamespace(writer, namespaceParts)
+        writeOpenNamespace(headerWriter, namespaceParts)
+        writeOpenNamespace(implWriter, namespaceParts)
         writeFieldClass()
         writeMethodClass()
-        writeCloseNamespace(writer, namespaceParts)
-        writeStaticAsserts()
+        writeCloseNamespace(headerWriter, namespaceParts)
+        writeCloseNamespace(implWriter, namespaceParts)
         writeFooter()
     }
 
     fun writeHeader() {
-        writer.writeln("// Don't edit; automatically generated.")
-        writer.writeln("#ifndef ${classModel.sentryMacro}")
-        writer.writeln("#define ${classModel.sentryMacro}")
-        writer.writeln()
-        writer.writeln("#include \"whatjni/generated.h\"")
+        headerWriter.writeln("// Don't edit; automatically generated.")
+        headerWriter.writeln("#ifndef ${classModel.headerSentryMacro}")
+        headerWriter.writeln("#define ${classModel.headerSentryMacro}")
+        headerWriter.writeln()
+        headerWriter.writeln("#include \"whatjni/generated.h\"")
+
+        implWriter.writeln("// Don't edit; automatically generated.")
+        implWriter.writeln("#ifndef ${classModel.implSentryMacro}")
+        implWriter.writeln("#define ${classModel.implSentryMacro}")
+        implWriter.writeln()
 
         val superClass = classModel.superClass
         if (superClass != null) {
-            writer.writeln("#include \"${superClass.unescapedName}.class.h\"")
+            headerWriter.writeln("#include \"${superClass.unescapedName}.class.h\"")
+        }
+        for (interfaceModel in classModel.interfaces) {
+            headerWriter.writeln("#include \"${interfaceModel.unescapedName}.class.h\"")
         }
 
-        writer.writeln()
+        headerWriter.writeln()
+        implWriter.writeln()
     }
 
     fun writeForwardDeclarations() {
@@ -101,16 +116,6 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                     for (argType in type.argumentTypes) {
                         recurseType(argType)
                     }
-                }
-            }
-        }
-
-        val todo = arrayListOf(classModel)
-        while (!todo.isEmpty()) {
-            val model = todo.removeLast()
-            if (declared.add(model.unescapedName.replace("/", "."))) {
-                for (iface in model.interfaces) {
-                    todo.add(iface)
                 }
             }
         }
@@ -139,29 +144,35 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                 line += "} "
             }
 
-            writer.writeln(line)
+            headerWriter.writeln(line)
         }
 
-        writer.writeln()
+        headerWriter.writeln()
     }
 
     fun writeFieldClass() {
         val nameParts = classModel.nameParts
-        writer.write("class var_${nameParts[nameParts.size - 1]}")
+        val fieldClassName = "var_${nameParts[nameParts.size - 1]}"
+        headerWriter.write("class WHATJNI_EMPTY_BASES $fieldClassName")
 
-        val superClass = classModel.superClass
-        if (superClass != null) {
-            writer.write(": public " + superClass.escapedName)
+        if (!classModel.baseClassNames.isEmpty()) {
+            val baseClasses = classModel.baseClassNames.map { "public " + it }.joinToString(", ")
+            headerWriter.write(": $baseClasses")
         }
+        headerWriter.writeln_r(" {")
 
-        writer.writeln_r(" {")
-
+        val accessMask = Opcodes.ACC_PUBLIC or Opcodes.ACC_PROTECTED or Opcodes.ACC_PRIVATE
+        var lastAccess = -1
         for (field in classModel.fields) {
+            if (field.access and accessMask != lastAccess) {
+                lastAccess = field.access and accessMask
+                writeAccess(lastAccess)
+            }
             writeField(field)
         }
 
-        writer.writeln_l("};")
-        writer.writeln()
+        headerWriter.writeln_l("};")
+        headerWriter.writeln()
     }
 
     fun writeField(field: FieldModel) {
@@ -172,8 +183,8 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                 }
             }
 
-            val cppType = makeCPPType(type, false)
-            val paramCPPType = makeCPPType(type, true)
+            val cppType = makeCPPType(type)
+            val paramCPPType = makeCPPType(type)
             val escapedName = escapeSimpleName(unescapedName)
             val modifiers = getModifiers(access)
 
@@ -188,64 +199,69 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                 target = "clazz"
             }
 
-            writeAccess(access)
-
             if (value != null) {
-                writer.writeln("static constexpr $cppType $escapedName = ${literalValue(value)};")
+                headerWriter.writeln("static constexpr $cppType $escapedName = ${literalValue(value)};")
             } else if (((access and Opcodes.ACC_STATIC) != 0) and ((access and Opcodes.ACC_FINAL) != 0)) {
-                writer.writeln_r("static const $cppType& get_$escapedName() {")
-                writer.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
-                writer.writeln("static jfieldID field = whatjni::get_static_field_id(clazz, \"$unescapedName\", \"$descriptor\");")
+                headerWriter.writeln("static $cppType get_$escapedName();")
+
+                implWriter.writeln_r("$cppType var_${classModel.escapedClassName}::get_$escapedName() {")
+                implWriter.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+                implWriter.writeln("static jfieldID field = whatjni::get_static_field_id(clazz, \"$unescapedName\", \"$descriptor\");")
 
                 when (type.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.writeln("static whatjni::no_destroy<$cppType> value($getField<jobject>($target, field), whatjni::own_ref);")
-                    else ->                    writer.writeln("static whatjni::no_destroy<$cppType> value($getField<$cppType>($target, field));")
+                    Type.OBJECT, Type.ARRAY -> implWriter.writeln("static $cppType value = ($cppType) whatjni::new_global_ref($getField<jobject>($target, field));")
+                    else ->                    implWriter.writeln("static $cppType value = $getField<$cppType>($target, field);")
                 }
 
-                writer.writeln("return value.get();")
-                writer.writeln_l("}")
+                implWriter.writeln("return value;")
+                implWriter.writeln_l("}")
 
-                writer.writeln_lr("#if WHATJNI_LANG >= 201703L")
-                writer.writeln_r("inline static struct {")
-                writer.writeln("const $cppType& operator->() const { return get_$escapedName(); }")
-                writer.writeln("operator const $cppType&() const { return get_$escapedName(); }")
-                writer.writeln_l("} $escapedName;")
-                writer.writeln_lr("#endif")
+                headerWriter.writeln_r("struct access_$escapedName {")
+                headerWriter.writeln("$cppType operator->() const { return get_$escapedName(); }")
+                headerWriter.writeln("operator $cppType() const { return get_$escapedName(); }")
+                headerWriter.writeln_l("};")
+                headerWriter.writeln("static const access_$escapedName $escapedName;")
+
+                implWriter.writeln("const ${classModel.escapedClassName}::access_$escapedName ${classModel.escapedClassName}::$escapedName;")
             } else {
-                writer.writeln_r("$modifiers$cppType get_$escapedName() {")
-                writer.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
-                writer.writeln("static jfieldID field = $getFieldID(clazz, \"$unescapedName\", \"$descriptor\");")
+                headerWriter.writeln("$modifiers$cppType get_$escapedName();")
+
+                implWriter.writeln_r("$cppType var_${classModel.escapedClassName}::get_$escapedName() {")
+                implWriter.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+                implWriter.writeln("static jfieldID field = $getFieldID(clazz, \"$unescapedName\", \"$descriptor\");")
 
                 when (type.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.writeln("return $cppType($getField<jobject>($target, field), whatjni::own_ref);")
-                    else ->                    writer.writeln("return $getField<$cppType>($target, field);")
+                    Type.OBJECT, Type.ARRAY -> implWriter.writeln("return ($cppType) $getField<jobject>($target, field);")
+                    else ->                    implWriter.writeln("return $getField<$cppType>($target, field);")
                 }
 
-                writer.writeln_l("}")
+                implWriter.writeln_l("}")
 
                 if ((access and Opcodes.ACC_FINAL) == 0) {
-                    writer.writeln_r("${modifiers}void set_$escapedName($paramCPPType value) {")
-                    writer.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
-                    writer.writeln("static jfieldID field = $getFieldID(clazz, \"$unescapedName\", \"$descriptor\");")
+                    headerWriter.writeln("${modifiers}void set_$escapedName($paramCPPType value);")
+
+                    implWriter.writeln_r("void var_${classModel.escapedClassName}::set_$escapedName($paramCPPType value) {")
+                    implWriter.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+                    implWriter.writeln("static jfieldID field = $getFieldID(clazz, \"$unescapedName\", \"$descriptor\");")
 
                     when (type.sort) {
-                        Type.OBJECT, Type.ARRAY -> writer.writeln("$setField($target, field, (jobject) value.operator->());")
-                        else ->                    writer.writeln("$setField($target, field, value);")
+                        Type.OBJECT, Type.ARRAY -> implWriter.writeln("$setField($target, field, (jobject) value);")
+                        else ->                    implWriter.writeln("$setField($target, field, value);")
                     }
 
-                    writer.writeln_l("}")
+                    implWriter.writeln_l("}")
 
                     if ((access and Opcodes.ACC_STATIC) == 0) {
-                        writer.writeln("WHATJNI_IF_PROPERTY(__declspec(property(get=get_$escapedName, put=set_$escapedName)) $modifiers$cppType $escapedName;)")
+                        headerWriter.writeln("WHATJNI_IF_PROPERTY(__declspec(property(get=get_$escapedName, put=set_$escapedName)) $modifiers$cppType $escapedName;)")
                     }
                 } else {
                     if ((access and Opcodes.ACC_STATIC) == 0) {
-                        writer.writeln("WHATJNI_IF_PROPERTY(__declspec(property(get=get_$escapedName)) $modifiers$cppType $escapedName;)")
+                        headerWriter.writeln("WHATJNI_IF_PROPERTY(__declspec(property(get=get_$escapedName)) $modifiers$cppType $escapedName;)")
                     }
                 }
             }
 
-            writer.writeln()
+            headerWriter.writeln()
         }
     }
 
@@ -274,23 +290,33 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
     fun writeMethodClass() {
         val nameParts = classModel.nameParts
         val unqualifiedClassName = nameParts[nameParts.size - 1]
-        writer.writeln_r("class $unqualifiedClassName: public var_$unqualifiedClassName {")
-        writer.writeln_lr("public:")
-        writer.writeln("typedef var_$unqualifiedClassName var;")
+        val superClassName = "var_$unqualifiedClassName"
+        headerWriter.writeln_r("class $unqualifiedClassName: public $superClassName {")
 
+        headerWriter.writeln_lr("public:")
+
+        headerWriter.writeln("typedef var_$unqualifiedClassName var;")
+
+        val accessMask = Opcodes.ACC_PUBLIC or Opcodes.ACC_PROTECTED or Opcodes.ACC_PRIVATE
+        var lastAccess = -1
         for (method in classModel.methods) {
+            if (method.access and accessMask != lastAccess) {
+                lastAccess = method.access and accessMask
+                writeAccess(lastAccess)
+            }
             writeMethod(method)
         }
 
-        writer.writeln_lr("public:")
+        headerWriter.writeln_lr("public:")
         for ((_, property) in classModel.propertiesByName) {
             writeProperty(property)
         }
 
         writeMethodRegistration()
 
-        writer.writeln_l("};")
-        writer.writeln()
+        headerWriter.writeln_l("};")
+        headerWriter.writeln("static_assert(std::is_standard_layout<$unqualifiedClassName>::value, \"Must be standard layout.\");")
+        headerWriter.writeln()
     }
 
     fun writeMethod(method: MethodModel) {
@@ -306,7 +332,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             }
 
             val type = Type.getMethodType(descriptor)
-            val cppReturnType = makeCPPType(type.returnType, false)
+            val cppReturnType = makeCPPType(type.returnType)
             val escapedName = escapeSimpleName(unescapedName)
             val modifiers = getModifiers(access)
 
@@ -318,113 +344,98 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                 callMethod = "whatjni::call_static_method"
                 target = "clazz"
             }
-            writeAccess(access)
 
             if (isConstructor) {
-                writer.write("static whatjni::ref<${classModel.escapedName}> new_object")
+                headerWriter.write("static ${classModel.escapedName}* new_object")
             } else {
-                writer.write("${modifiers}$cppReturnType ${escapedName}")
+                headerWriter.write("${modifiers}$cppReturnType ${escapedName}")
             }
-            writeParameters(type)
-            writer.writeln_r(" {")
+            writeParameters(headerWriter, type)
+            headerWriter.writeln(";")
 
-            writer.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
-            writer.writeln("static jmethodID method = $getMethodID(clazz, \"$unescapedName\", \"$descriptor\");")
-
-            writer.write("return ")
             if (isConstructor) {
-                writer.write("whatjni::ref<${classModel.escapedName}>(whatjni::new_object(clazz, method")
+                implWriter.write("${classModel.escapedName}* ${classModel.escapedClassName}::new_object")
+            } else {
+                implWriter.write("$cppReturnType ${classModel.escapedClassName}::${escapedName}")
+            }
+            writeParameters(implWriter, type)
+            implWriter.writeln_r(" {")
+
+            implWriter.writeln("static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+            implWriter.writeln("static jmethodID method = $getMethodID(clazz, \"$unescapedName\", \"$descriptor\");")
+
+            implWriter.write("return ")
+            if (isConstructor) {
+                implWriter.write("(${classModel.escapedName}*) whatjni::new_object(clazz, method")
             } else {
                 when (type.returnType.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.write("$cppReturnType($callMethod<jobject>($target, method")
-                    else -> writer.write("$callMethod<$cppReturnType>($target, method")
+                    Type.OBJECT, Type.ARRAY -> implWriter.write("($cppReturnType) $callMethod<jobject>($target, method")
+                    else ->                    implWriter.write("$callMethod<$cppReturnType>($target, method")
                 }
             }
 
             var i = 0
             for (argumentType in type.argumentTypes) {
-                writer.write(", ")
+                implWriter.write(", ")
                 when (argumentType.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.write("(jobject) arg_$i.operator->()")
-                    else -> writer.write("arg_$i")
+                    Type.OBJECT, Type.ARRAY -> implWriter.write("(jobject) arg_$i")
+                    else -> implWriter.write("arg_$i")
                 }
                 ++i
             }
+            implWriter.writeln(");")
 
-            if (isConstructor) {
-                writer.writeln("), whatjni::own_ref);")
-            } else {
-                when (type.returnType.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.writeln("), whatjni::own_ref);")
-                    else -> writer.writeln(");")
-                }
-            }
-
-            writer.writeln_l("}")
-            writer.writeln()
+            implWriter.writeln_l("}")
+            implWriter.writeln()
 
             if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
-                writer.writeln_lr("private:")
-                writer.write("${modifiers}$cppReturnType native_${escapedName}")
-                writeParameters(type)
-                writer.writeln(";")
+                headerWriter.writeln_lr("private:")
+                headerWriter.write("${modifiers}$cppReturnType native_${escapedName}")
+                writeParameters(headerWriter, type)
+                headerWriter.writeln(";")
 
-                writer.write("static ${makeJNIType(type.returnType)} ${jniName}(JNIEnv* env")
+                var jniParameters = "JNIEnv* env"
                 if ((access and Opcodes.ACC_STATIC) != 0) {
-                    writer.write(", jclass")
+                    jniParameters += ", jclass"
                 } else {
-                    writer.write(", jobject ja_thiz")
+                    jniParameters += ", jobject arg_thiz"
                 }
 
                 i = 0
                 for (argumentType in type.argumentTypes) {
-                    writer.write(", ${makeJNIType(argumentType)} ja_${i}")
+                    jniParameters += ", ${makeJNIType(argumentType)} arg_${i}"
                     ++i
                 }
 
-                writer.writeln_r(") {")
-                writer.writeln("whatjni::initialize_thread(env);")
+                val jniReturnType = makeJNIType(type.returnType)
+                headerWriter.writeln("static $jniReturnType $jniName($jniParameters);")
 
-                if ((access and Opcodes.ACC_STATIC) == 0) {
-                    writer.writeln("whatjni::ref<${classModel.escapedName}> arg_thiz(ja_thiz, whatjni::own_ref);")
-                }
+                implWriter.writeln_r("$jniReturnType ${classModel.escapedClassName}::$jniName($jniParameters) {")
+                implWriter.writeln("whatjni::initialize_thread(env);")
 
-                i = 0
-                for (argumentType in type.argumentTypes) {
-                    val cppArgumentType = makeCPPType(argumentType, false)
-                    when (argumentType.sort) {
-                        Type.OBJECT, Type.ARRAY -> writer.writeln("$cppArgumentType arg_$i(ja_${i}, whatjni::own_ref);")
-                        else ->                    writer.writeln("$cppArgumentType arg_$i = ja_${i};")
-                    }
-                    ++i
-                }
-
-                writer.write("return ")
+                implWriter.write("return ")
                 when (type.returnType.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.write("(jobject) ")
+                    Type.OBJECT, Type.ARRAY -> implWriter.write("(jobject) ")
                 }
                 if ((access and Opcodes.ACC_STATIC) != 0) {
-                    writer.write("native_$escapedName(")
+                    implWriter.write("native_$escapedName(")
                 } else {
-                    writer.write("arg_thiz->native_$escapedName(")
+                    implWriter.write("((${classModel.escapedClassName}*) arg_thiz)->native_$escapedName(")
                 }
 
                 i = 0
                 for (argumentType in type.argumentTypes) {
                     if (i > 0) {
-                        writer.write(", ")
+                        implWriter.write(", ")
                     }
-                    writer.write("arg_$i")
+                    when (type.returnType.sort) {
+                        Type.OBJECT, Type.ARRAY -> implWriter.write("(${makeCPPType(argumentType)}) ")
+                    }
+                    implWriter.write("arg_$i")
                     ++i
                 }
-                writer.write(")")
-
-                when (type.returnType.sort) {
-                    Type.OBJECT, Type.ARRAY -> writer.write(".operator->()")
-                }
-
-                writer.writeln(";")
-                writer.writeln_l("}")
+                implWriter.writeln(");")
+                implWriter.writeln_l("}")
             }
         }
     }
@@ -441,41 +452,41 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         }
         val accessorsString = accessors.joinToString(",")
 
-        val cppType = makeCPPType(property.type, false)
-        writer.writeln("WHATJNI_IF_PROPERTY(__declspec(property($accessorsString)) $cppType ${property.escapedName};)")
+        val cppType = makeCPPType(property.type)
+        headerWriter.writeln("WHATJNI_IF_PROPERTY(__declspec(property($accessorsString)) $cppType ${property.escapedName};)")
     }
 
     private fun writeMethodRegistration() {
+        headerWriter.writeln_lr("public:")
+        headerWriter.writeln("static void initialize_class();")
+
+        implWriter.writeln_r("void ${classModel.escapedClassName}::initialize_class() {")
+
         val nativeMethods = classModel.methods.filter { implementsNative && (it.access and Opcodes.ACC_NATIVE) != 0 }
-        if (nativeMethods.isEmpty()) {
-            return
-        }
+        if (!nativeMethods.isEmpty()) {
+            implWriter.writeln_r("const static JNINativeMethod methods[] = {")
 
-        writer.writeln_lr("public:")
-        writer.writeln_r("static void register_natives() {")
-
-        writer.writeln_r("const static JNINativeMethod methods[] = {")
-
-        for (method in classModel.methods) {
-            method.apply {
-                if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
-                    writer.writeln("{(char*) \"$unescapedName\", (char*) \"$descriptor\", (void*) &${classModel.escapedName}::$jniName },")
+            for (method in classModel.methods) {
+                method.apply {
+                    if (implementsNative && (access and Opcodes.ACC_NATIVE) != 0) {
+                        implWriter.writeln("{(char*) \"$unescapedName\", (char*) \"$descriptor\", (void*) &${classModel.escapedName}::$jniName },")
+                    }
                 }
             }
+
+            implWriter.writeln_l("};")
+            implWriter.writeln("const static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
+            implWriter.writeln("whatjni::register_natives(clazz, methods, ${nativeMethods.size});")
         }
 
-        writer.writeln_l("};")
-        writer.writeln("const static jclass clazz = whatjni::find_class(\"${classModel.unescapedName}\");")
-        writer.writeln("whatjni::register_natives(clazz, methods, ${nativeMethods.size});")
-
-        writer.writeln_l("}")
+        implWriter.writeln_l("}")
     }
 
-    private fun writeParameters(type: Type) {
+    private fun writeParameters(writer: PicoWriter, type: Type) {
         writer.write("(")
         var i = 0
         for (argumentType in type.argumentTypes) {
-            val cppArgumentTypeName = makeCPPType(argumentType, true)
+            val cppArgumentTypeName = makeCPPType(argumentType)
             if (i > 0) {
                 writer.write(", ")
             }
@@ -487,43 +498,19 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
 
     private fun writeAccess(access: Int) {
         if ((access and Opcodes.ACC_PUBLIC) != 0) {
-            writer.writeln_lr("public:")
+            headerWriter.writeln_lr("public:")
         } else if ((access and Opcodes.ACC_PROTECTED) != 0) {
-            writer.writeln_lr("protected:")
+            headerWriter.writeln_lr("protected:")
         } else if ((access and Opcodes.ACC_PRIVATE) != 0) {
-            writer.writeln_lr("private:")
+            headerWriter.writeln_lr("private:")
         } else {
-            writer.writeln_lr("public:")
+            headerWriter.writeln_lr("public:")
         }
-    }
-
-    fun writeStaticAsserts() {
-        val staticAsserts = sortedSetOf<String>()
-        val todo = arrayListOf(classModel)
-        while (!todo.isEmpty()) {
-            val classModel = todo.removeLast()
-            if (classModel.superClass != null && classModel.superClass.superClass != null) {
-                if (staticAsserts.add(classModel.superClass.escapedName)) {
-                    todo.add(classModel.superClass)
-                }
-            }
-            for (iface in classModel.interfaces) {
-                if (staticAsserts.add(iface.escapedName)) {
-                    todo.add(iface)
-                }
-            }
-        }
-
-        writer.writeln_r("namespace whatjni {")
-        for (escapedName in staticAsserts) {
-            writer.writeln("inline void static_assert_instanceof(${classModel.escapedName}*, $escapedName*) {}")
-        }
-        writer.writeln_l("}  // namespace whatjni")
-        writer.writeln()
     }
 
     fun writeFooter() {
-        writer.writeln("#endif  // ${classModel.sentryMacro}")
+        headerWriter.writeln("#endif  // ${classModel.headerSentryMacro}")
+        implWriter.writeln("#endif  // ${classModel.implSentryMacro}")
     }
 
     private fun getModifiers(access: Int): String {
@@ -551,8 +538,8 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         }
     }
 
-    private fun makeCPPType(type: Type, param: Boolean): String {
-        var result = when (type.sort) {
+    private fun makeCPPType(type: Type): String {
+        return when (type.sort) {
             Type.VOID -> "void"
             Type.BOOLEAN -> "jboolean"
             Type.BYTE -> "jbyte"
@@ -562,15 +549,9 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             Type.CHAR -> "jchar"
             Type.FLOAT -> "jfloat"
             Type.DOUBLE -> "jdouble"
-            Type.OBJECT -> "whatjni::ref<${escapeQualifiedName(type.className).replace(".", "::")}>"
-            Type.ARRAY -> "whatjni::ref<whatjni::array< " + makeCPPType(type.elementType, false) + " >>"
+            Type.OBJECT -> "${escapeQualifiedName(type.className).replace(".", "::")}*"
+            Type.ARRAY -> "whatjni::array< " + makeCPPType(type.elementType) + " >*"
             else -> "void"
         }
-
-        if (param && (type.sort == Type.OBJECT || type.sort == Type.ARRAY)) {
-            result = "const ${result}&"
-        }
-
-        return result
     }
 }

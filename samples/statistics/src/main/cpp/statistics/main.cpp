@@ -1,4 +1,5 @@
 #include "statistics/main.h"
+#include "initialize_classes.h"
 #include "java/io/BufferedReader.class.h"
 #include "java/io/InputStream.class.h"
 #include "java/io/InputStreamReader.class.h"
@@ -25,6 +26,7 @@ using namespace whatjni;
 
 int main(int argc, const char **argv) {
     initialize_vm(vm_config(JNI_VERSION_1_8));
+    initialize_classes();
 
     try {
         auto statistics = SummaryStatistics::new_object();
@@ -34,7 +36,7 @@ int main(int argc, const char **argv) {
         auto reader = BufferedReader::new_object(InputStreamReader::new_object(System::in));
         while (true) {
             auto line = reader->readLine();
-            if (line == nullptr || line->equals("done")) {
+            if (line == nullptr || line->equals("done"_j)) {
                 break;
             }
 
@@ -54,7 +56,7 @@ int main(int argc, const char **argv) {
         std::ostringstream stream;
         stream << "Average is " << summary->getMean() << "\n";
         stream << "Variance is " << summary->getVariance() << "\n";
-        System::out->print(ref<String>(stream.str()));
+        System::out->println(j_string(stream.str()));
 
     } catch (const jvm_exception& e) {
         std::cout << "Exception " << e.get_message() << "\n";

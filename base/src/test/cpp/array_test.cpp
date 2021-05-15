@@ -22,14 +22,14 @@ struct Point {
 struct ArrayTest: testing::Test {
     ArrayTest() {
         int_array = new_array<jint>(3);
-        obj_array = new_array<ref<Point>>(3);
-        nested_int_array = new_array< ref<array< jint >> >(1);
-        nested_obj_array = new_array< ref<array< ref<Point> >> >(1);
+        obj_array = new_array<Point*>(3);
+        nested_int_array = new_array<array<jint>*>(1);
+        nested_obj_array = new_array<array<Point*>*>(1);
     }
-    ref<array<jint>> int_array;
-    ref<array< ref<Point> >> obj_array;
-    ref<array< ref<array< jint >> >> nested_int_array;
-    ref<array< ref<array< ref<Point> >> >> nested_obj_array;
+    array<jint>* int_array;
+    array<Point*>* obj_array;
+    array<array<jint>*>* nested_int_array;
+    array<array<Point*>*>* nested_obj_array;
 };
 
 TEST_F(ArrayTest, new_primitive_array) {
@@ -110,13 +110,13 @@ TEST_F(ArrayTest, new_object_array) {
 }
 
 TEST_F(ArrayTest, set_then_get_object_element) {
-    ref<Point> obj = (Point*) alloc_object(Point::get_class());
+    Point* obj = (Point*) alloc_object(Point::get_class());
 
-    for (int i = 0; i < int_array->get_length(); ++i) {
+    for (int i = 0; i < obj_array->get_length(); ++i) {
         obj_array->set_data(i, obj);
     }
-    for (int i = 0; i < int_array->get_length(); ++i) {
-        EXPECT_EQ(obj_array->get_data(i), obj);
+    for (int i = 0; i < obj_array->get_length(); ++i) {
+        EXPECT_TRUE(is_same_object((jobject) obj_array->get_data(i), (jobject) obj));
     }
 }
 

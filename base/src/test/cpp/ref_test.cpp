@@ -73,41 +73,36 @@ TEST_F(RefTest, defaults_to_null) {
     EXPECT_FALSE(ref1);
     EXPECT_TRUE(ref1 == nullptr);
     EXPECT_TRUE(nullptr == ref1);
-    EXPECT_TRUE(ref1 == ref2);
     EXPECT_FALSE(ref1 != nullptr);
     EXPECT_FALSE(nullptr != ref1);
-    EXPECT_FALSE(ref1 != ref2);
     EXPECT_EQ(ref1.operator->(), nullptr);
 }
 
-TEST_F(RefTest, takes_ownership_of_local_ref) {
-    ref<Point> ref1(obj1, own_ref);
+TEST_F(RefTest, construct_from_local_ref) {
+    ref<Point> ref1(obj1);
     EXPECT_TRUE(ref1);
     EXPECT_FALSE(ref1 == nullptr);
     EXPECT_FALSE(nullptr == ref1);
-    EXPECT_TRUE(ref1 == ref1);
     EXPECT_NE(ref1.operator->(), nullptr);
 }
 
 TEST_F(RefTest, distinct_refs_to_the_same_object_are_equal) {
     ref<Point> ref1(obj1);
     ref<Point> ref2(obj1);
-    EXPECT_TRUE(ref1 == ref2);
-    EXPECT_FALSE(ref1 != ref2);
+    EXPECT_TRUE(is_same_object((jobject) (Point*) ref1, (jobject) (Point*) ref2));
 }
 
 TEST_F(RefTest, refs_to_different_objects_are_not_equal) {
     ref<Point> ref1(obj1);
     ref<Point> ref2(obj2);
-    EXPECT_FALSE(ref1 == ref2);
-    EXPECT_TRUE(ref1 != ref2);
+    EXPECT_FALSE(is_same_object((jobject) (Point*) ref1, (jobject) (Point*) ref2));
 }
 
 TEST_F(RefTest, can_copy_construct_refs) {
     ref<Point> ref1(obj1);
     ref<Point> ref2(ref1);
     EXPECT_TRUE(ref1);
-    EXPECT_TRUE(ref1 == ref2);
+    EXPECT_TRUE(is_same_object((jobject) (Point*) ref1, (jobject) (Point*) ref2));
 }
 
 TEST_F(RefTest, can_assign_refs) {
@@ -115,7 +110,7 @@ TEST_F(RefTest, can_assign_refs) {
     ref<Point> ref2;
     ref2 = ref1;
     EXPECT_TRUE(ref1);
-    EXPECT_TRUE(ref1 == ref2);
+    EXPECT_TRUE(is_same_object((jobject) (Point*) ref1, (jobject) (Point*) ref2));
 }
 
 TEST_F(RefTest, can_assign_self) {
@@ -151,13 +146,22 @@ TEST_F(RefTest, can_swap_refs) {
     ref<Point> ref3(ref1);
     ref<Point> ref4(ref2);
     std::swap(ref3, ref4);
-    EXPECT_EQ(ref1, ref4);
-    EXPECT_EQ(ref2, ref3);
+    EXPECT_TRUE(is_same_object((jobject) (Point*) ref1, (jobject) (Point*) ref4));
+    EXPECT_TRUE(is_same_object((jobject) (Point*) ref2, (jobject) (Point*) ref3));
 }
 
-TEST_F(RefTest, can_access_members) {
-    ref<Point> ref1(obj1, own_ref);
-    EXPECT_EQ(obj1, ref1.operator->());
+TEST_F(RefTest, arrow_returns_local_ref) {
+    ref<Point> ref1(obj1);
+    Point* local = ref1.operator->();
+    EXPECT_TRUE(local);
+    EXPECT_EQ(get_object_ref_type((jobject) local), JNILocalRefType);
+}
+
+TEST_F(RefTest, conversion_to_pointer_returns_local_ref) {
+    ref<Point> ref1(obj1);
+    Point* local = (Point*) ref1;
+    EXPECT_TRUE(local);
+    EXPECT_EQ(get_object_ref_type((jobject) local), JNILocalRefType);
 }
 
 TEST_F(RefTest, can_construct_refs_with_derived_type) {
@@ -194,7 +198,7 @@ TEST_F(RefTest, can_move_assign_refs_with_derived_type) {
     EXPECT_FALSE(ref1);
     EXPECT_TRUE(ref2);
 }
-
+/*
 TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_identity_equality) {
     ref<Point> ref1(obj1);
     ref<Point> ref2(obj2);
@@ -251,6 +255,7 @@ TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_default_value_eq
     ASSERT_EQ(map[ref2], 2);
     ASSERT_EQ(map[ref3], 3);
 }
+*/
 /*
 TEST_F(RefTest, c_string_to_object_ref) {
     ref<java::lang::String> str("hello");

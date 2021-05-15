@@ -276,7 +276,7 @@ TEST_F(BaseTest, string) {
 }
 
 TEST_F(BaseTest, utf8_string_fast_path) {
-    jstring str = new_utf8_string("Hello", 5);
+    jstring str = new_utf_string("Hello", 5);
     jsize length = get_string_length(str);
     EXPECT_EQ(length, 5);
 
@@ -286,7 +286,7 @@ TEST_F(BaseTest, utf8_string_fast_path) {
 }
 
 TEST_F(BaseTest, utf8_string_slow_path) {
-    jstring str = new_utf8_string("Hello\xf0\x9f\x9c\x81", 9);
+    jstring str = new_utf_string("Hello\xf0\x9f\x9c\x81", 9);
     jsize length = get_string_length(str);
     EXPECT_EQ(length, 7);
 
@@ -296,7 +296,7 @@ TEST_F(BaseTest, utf8_string_slow_path) {
 }
 
 TEST_F(BaseTest, utf8_string_with_internal_null) {
-    jstring str = new_utf8_string("\x00Hello", 6);
+    jstring str = new_utf_string("\x00Hello", 6);
     EXPECT_EQ(get_string_length(str), 6);
 
     const char16_t* chars = (const char16_t*) get_string_chars(str, nullptr);

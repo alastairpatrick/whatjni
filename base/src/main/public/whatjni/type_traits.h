@@ -1,33 +1,38 @@
 #ifndef WHATJNI_TYPE_TRAITS_H
 #define WHATJNI_TYPE_TRAITS_H
 
+#include "whatjni/base.h"
+
 namespace whatjni {
 
 template <typename T> class array;
-template <typename T> class ref;
+
+// T does not correspond to a Java type. Did you forget append pointer type with '*'?
+template <typename T>
+struct TypeTraits {
+};
 
 // TypeTraits for all types that are Java classes, i.e. those types that are not Java primitive types. Specialized later
 // for each of the eight primitive types.
 template <typename T>
-struct TypeTraits {
+struct TypeTraits<T*> {
     // How this type is communicated with the low level base API.
     typedef jobject BaseType;
-    static T from_base(BaseType value) {
-        return T(value, own_ref);
+    static T* from_base(BaseType value) {
+        return (T*) value;
     }
-    static BaseType to_base(const T& value) {
-        return (jobject) value.operator->();
+    static BaseType to_base(T* value) {
+        return (jobject) value;
     }
 
     // Create an array of this type of the given length.
-    static ref<array<T>> new_array(jsize size) {
-        return ref<array<T>>(new_object_array(size, TypeTraits<T>::get_class(), nullptr), own_ref);
+    static array<T*>* new_array(jsize size) {
+        return (array<T*>*) new_object_array(size, TypeTraits<T*>::get_class(), nullptr);
     }
 
     // JVM signature for this type, "Ljava/lang/String;" style for classes.
     static std::string get_signature() {
-        typedef typename T::Class Class;
-        return Class::get_signature();
+        return T::get_signature();
     }
 
     // Class for this type. Only present for types that are classes, i.e. not for primitive types.
@@ -49,8 +54,8 @@ template <typename T>
 struct PrimitiveTypeTraits {
     typedef T BaseType;
 
-    static ref<array<T>> new_array(jsize size) {
-        return ref<array<T>>(new_primitive_array<T>(size), own_ref);
+    static array<T>* new_array(jsize size) {
+        return (array<T>*) new_primitive_array<T>(size);
     }
 
     static T from_base(BaseType value) {

@@ -13,7 +13,6 @@ import org.gradle.api.tasks.*
 import org.gradle.work.ChangeType
 import org.gradle.work.Incremental
 import org.gradle.work.InputChanges
-import org.objectweb.asm.Opcodes
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
@@ -62,7 +61,7 @@ abstract class GenerateJNIBindingsTask : DefaultTask() {
                 classMap.get(className)
             }
 
-            writeRegisterNatives(classMap)
+            writeImplementation(classMap)
         }
 
         writeIndex(indexFile, index)
@@ -137,50 +136,36 @@ abstract class GenerateJNIBindingsTask : DefaultTask() {
         return ArrayList(dependencies)
     }
 
-    private fun writeRegisterNatives(classMap: ClassMap) {
-        for (nativePackage in nativePackages.get()) {
-            val writer = PicoWriter()
+    private fun writeImplementation(classMap: ClassMap) {
+        val writer = PicoWriter()
 
-            val sentry = nativePackage.replace(".", "_") + "register_natives_SENTRY_"
-            writer.writeln("#ifndef ${sentry}")
-            writer.writeln("#define ${sentry}")
-            writer.writeln()
+        val sentry = "initialize_classes_SENTRY_"
+        writer.writeln("#ifndef ${sentry}")
+        writer.writeln("#define ${sentry}")
+        writer.writeln()
 
-            val includeWriter = writer.createDeferredWriter()
-            writer.writeln()
+        for ((_, classModel) in classMap.classes) {
+            writer.writeln("#include \"${classModel.unescapedName}.class.h\"")
+        }
+        writer.writeln()
 
-            val nameParts = nativePackage.split(".")
-            writeOpenNamespace(writer, nameParts)
+        for ((_, classModel) in classMap.classes) {
+            writer.writeln("#include \"${classModel.unescapedName}.class.impl.h\"")
+        }
+        writer.writeln()
 
-            writer.writeln_r("inline void register_natives() {")
+        writer.writeln_r("inline void initialize_classes() {")
+        for ((_, classModel) in classMap.classes) {
+            writer.writeln("${classModel.escapedName}::initialize_class();")
+        }
+        writer.writeln_l("}")
+        writer.writeln()
 
-            val prefix = nativePackage.replace(".", "/") + "/"
-            for ((className, classModel) in classMap.classes.tailMap(nativePackage)) {
-                if (!className.startsWith(prefix)) {
-                    break
-                }
+        writer.writeln("#endif  // ${sentry}")
 
-                val nativeMethods = classModel.methods.filter { (it.access and Opcodes.ACC_NATIVE) != 0 }
-                if (nativeMethods.isEmpty()) {
-                    continue
-                }
-
-                includeWriter.writeln("#include \"${classModel.unescapedName}.class.h\"")
-                writer.writeln("${classModel.escapedName}::register_natives();")
-            }
-
-            writer.writeln_l("}")
-            writer.writeln()
-
-            writeCloseNamespace(writer, nameParts)
-
-            writer.writeln("#endif  // ${sentry}")
-
-            val registerNativesFile =
-                File(generatedDir.file(nativePackage.replace(".", "/")).get().asFile, "register_natives.h")
-            FileWriter(registerNativesFile).use {
-                it.write(writer.toString())
-            }
+        val file = generatedDir.file("initialize_classes.h").get().asFile
+        FileWriter(file).use {
+            it.write(writer.toString())
         }
     }
 }

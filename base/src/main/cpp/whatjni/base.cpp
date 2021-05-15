@@ -538,10 +538,20 @@ jobject get_field(jobject obj, jfieldID field) {
 
 
 template<>
+jboolean get_static_field(jclass clazz, jfieldID field) {
+    return check_exception(g_env->GetStaticBooleanField(clazz, field));
+}
+
+template <>
+void set_static_field(jclass clazz, jfieldID field, jboolean value) {
+    g_env->SetStaticBooleanField(clazz, field, value);
+    check_exception();
+}
+
+template<>
 jbyte get_static_field(jclass clazz, jfieldID field) {
     return check_exception(g_env->GetStaticByteField(clazz, field));
 }
-
 
 template <>
 void set_static_field(jclass clazz, jfieldID field, jshort value) {
@@ -553,7 +563,6 @@ template<>
 jshort get_static_field(jclass clazz, jfieldID field) {
     return check_exception(g_env->GetStaticShortField(clazz, field));
 }
-
 
 template <>
 void set_static_field(jclass clazz, jfieldID field, jint value) {
@@ -912,7 +921,7 @@ static jstring new_slow_utf8_string(const char* str, jsize length) {
     return g_env->NewString((const jchar*) str16.data(), str16.length());
 }
 
-jstring new_utf8_string(const char* str, jsize length) {
+jstring new_utf_string(const char* str, jsize length) {
     bool fastPath = true;
     for (size_t i = 0; i < length; ++i) {
         char c = str[i];
@@ -929,7 +938,7 @@ jstring new_utf8_string(const char* str, jsize length) {
     }
 }
 
-jstring new_utf8_string(const char* str) {
+jstring new_utf_string(const char* str) {
     jsize length = 0;
     bool fastPath = true;
     for (size_t i = 0;; ++i) {

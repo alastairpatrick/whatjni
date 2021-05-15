@@ -1,7 +1,6 @@
 #ifndef WHATJNI_ARRAY_H
 #define WHATJNI_ARRAY_H
 
-#include "whatjni/ref.h"
 #include "whatjni/type_traits.h"
 #include "java/lang/Object.class.h"
 
@@ -109,7 +108,7 @@ public:
 };
 
 template<typename R>
-ref<array<R>> new_array(jsize size) {
+array<R>* new_array(jsize size) {
     return TypeTraits<R>::new_array(size);
 }
 

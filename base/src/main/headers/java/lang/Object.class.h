@@ -1,7 +1,5 @@
-#ifndef java_lang_Object_SENTRY_H_
-#define java_lang_Object_SENTRY_H_
-
-#include "whatjni/ref.h"
+#ifndef java_lang_Object_SENTRY_
+#define java_lang_Object_SENTRY_
 
 namespace java {
 namespace lang {
@@ -14,4 +12,4 @@ class Object {
 }  // lang
 }  // java
 
-#endif  // java_lang_Object_SENTRY_H_
+#endif  // java_lang_Object_SENTRY_
