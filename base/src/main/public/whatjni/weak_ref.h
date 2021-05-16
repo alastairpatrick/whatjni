@@ -18,11 +18,11 @@ public:
     weak_ref(std::nullptr_t) {}
 
     weak_ref(T* rhs) {
-        obj = new_weak_global_ref((jobject) rhs);
+        obj = new_weak_global_ref(reinterpret_cast<jobject>(rhs));
     }
     template <typename U> weak_ref(U* rhs) {
         T* t = (U*) nullptr;  // static assertion
-        obj = new_weak_global_ref((jobject) rhs);
+        obj = new_weak_global_ref(reinterpret_cast<jobject>(rhs));
     }
 
     weak_ref(const weak_ref& rhs) {

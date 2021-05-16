@@ -110,7 +110,7 @@ TEST_F(ArrayTest, object_array) {
 }
 
 TEST_F(ArrayTest, set_then_get_object_element) {
-    Point* obj = (Point*) alloc_object(pointClass);
+    Point* obj = reinterpret_cast<Point*>(alloc_object(pointClass));
 
     for (int i = 0; i < obj_array->get_length(); ++i) {
         obj_array->set_data(i, obj);

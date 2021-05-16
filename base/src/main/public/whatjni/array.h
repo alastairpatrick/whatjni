@@ -81,15 +81,15 @@ public:
     }
 
     jsize get_length() {
-        return get_array_length((jarray) this);
+        return get_array_length(reinterpret_cast<jarray>(this));
     }
     WHATJNI_IF_PROPERTY(__declspec(property(get=get_length)) jsize length;)
 
     void set_data(jsize idx, T value) {
-        set_array_element((jarray) this, idx, traits<T>::to_base(value));
+        set_array_element(reinterpret_cast<jarray>(this), idx, traits<T>::to_base(value));
     }
     T get_data(jsize idx) {
-        return traits<T>::from_base(get_array_element<typename traits<T>::BaseType>((jarray) this, idx));
+        return traits<T>::from_base(get_array_element<typename traits<T>::BaseType>(reinterpret_cast<jarray>(this), idx));
     }
     WHATJNI_IF_PROPERTY(__declspec(property(get=get_data, put=set_data)) T data[];)
 

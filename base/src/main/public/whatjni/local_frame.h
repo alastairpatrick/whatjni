@@ -20,7 +20,7 @@ public:
     T* pop(T* result) {
         assert(!popped);
         popped = true;
-        return (T*) pop_local_frame((jobject) result);
+        return (T*) pop_local_frame(reinterpret_cast<jobject>(result));
     }
 
     ~local_frame() {

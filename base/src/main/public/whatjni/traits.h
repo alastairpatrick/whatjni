@@ -22,12 +22,12 @@ struct traits<T*> {
         return (T*) value;
     }
     static BaseType to_base(T* value) {
-        return (jobject) value;
+        return reinterpret_cast<jobject>(value);
     }
 
     // Create an array of this type of the given length.
     static array<T*>* new_array(jsize size) {
-        return (array<T*>*) new_object_array(size, traits<T*>::get_class(), nullptr);
+        return reinterpret_cast<array<T*>*>(new_object_array(size, traits<T*>::get_class(), nullptr));
     }
 
     // JVM signature for this type, "Ljava/lang/String;" style for classes.
@@ -55,7 +55,7 @@ struct primitive_traits {
     typedef T BaseType;
 
     static array<T>* new_array(jsize size) {
-        return (array<T>*) new_primitive_array<T>(size);
+        return reinterpret_cast<array<T>*>(new_primitive_array<T>(size));
     }
 
     static T from_base(BaseType value) {

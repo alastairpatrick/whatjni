@@ -191,7 +191,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             var getFieldID = "whatjni::get_field_id"
             var getField = "whatjni::get_field"
             var setField = "whatjni::set_field"
-            var target = "(jobject) this"
+            var target = "reinterpret_cast<jobject>(this)"
             if ((access and Opcodes.ACC_STATIC) != 0) {
                 getFieldID = "whatjni::get_static_field_id"
                 getField = "whatjni::get_static_field"
@@ -245,7 +245,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                     implWriter.writeln("static jfieldID field = $getFieldID(clazz, \"$unescapedName\", \"$descriptor\");")
 
                     when (type.sort) {
-                        Type.OBJECT, Type.ARRAY -> implWriter.writeln("$setField($target, field, (jobject) value);")
+                        Type.OBJECT, Type.ARRAY -> implWriter.writeln("$setField($target, field, reinterpret_cast<jobject>(value));")
                         else ->                    implWriter.writeln("$setField($target, field, value);")
                     }
 
@@ -339,7 +339,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
 
             var getMethodID = "whatjni::get_method_id"
             var callMethod = "whatjni::call_method"
-            var target = "(jobject) this"
+            var target = "reinterpret_cast<jobject>(this)"
             if ((access and Opcodes.ACC_STATIC) != 0) {
                 getMethodID = "whatjni::get_static_method_id"
                 callMethod = "whatjni::call_static_method"
@@ -379,7 +379,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             for (argumentType in type.argumentTypes) {
                 implWriter.write(", ")
                 when (argumentType.sort) {
-                    Type.OBJECT, Type.ARRAY -> implWriter.write("(jobject) arg_$i")
+                    Type.OBJECT, Type.ARRAY -> implWriter.write("reinterpret_cast<jobject>(arg_$i)")
                     else -> implWriter.write("arg_$i")
                 }
                 ++i
@@ -417,8 +417,9 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
 
                 implWriter.write("return ")
                 when (type.returnType.sort) {
-                    Type.OBJECT, Type.ARRAY -> implWriter.write("(jobject) ")
+                    Type.OBJECT, Type.ARRAY -> implWriter.write("reinteret_cast<jobject>(")
                 }
+
                 if ((access and Opcodes.ACC_STATIC) != 0) {
                     implWriter.write("native_$escapedName(")
                 } else {
@@ -435,6 +436,10 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                     }
                     implWriter.write("arg_$i")
                     ++i
+                }
+
+                when (type.returnType.sort) {
+                    Type.OBJECT, Type.ARRAY -> implWriter.write(")")
                 }
                 implWriter.writeln(");")
 

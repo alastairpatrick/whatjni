@@ -39,19 +39,19 @@ public:
     ref(std::nullptr_t) {}
 
     ref(T* rhs) {
-        obj = (T*) new_global_ref((jobject) rhs);
+        obj = (T*) new_global_ref(reinterpret_cast<jobject>(rhs));
     }
     template <typename U>ref(U* rhs) {
         static_assert_instanceof((U*) nullptr, (T*) nullptr);
-        obj = (T*) new_global_ref((jobject) rhs);
+        obj = (T*) new_global_ref(reinterpret_cast<jobject>(rhs));
     }
 
     ref(const ref& rhs) {
-        obj = (T*) new_global_ref((jobject) rhs.obj);
+        obj = (T*) new_global_ref(reinterpret_cast<jobject>(rhs.obj));
     }
     template<typename U> ref(const ref<U>& rhs) {
         static_assert_instanceof((U*) nullptr, (T*) nullptr);
-        obj = (T*) new_global_ref((jobject) rhs.obj);
+        obj = (T*) new_global_ref(reinterpret_cast<jobject>(rhs.obj));
     }
 
     ref(ref&& rhs) {
@@ -65,31 +65,31 @@ public:
     }
 
     ~ref() {
-        delete_global_ref((jobject) obj);
+        delete_global_ref(reinterpret_cast<jobject>(obj));
     }
 
     ref& operator=(std::nullptr_t) {
-        delete_global_ref((jobject) obj);
+        delete_global_ref(reinterpret_cast<jobject>(obj));
         obj = nullptr;
         return *this;
     }
     ref& operator=(const ref& rhs) {
         if (this != &rhs) {
-            delete_global_ref((jobject) obj);
-            obj = (T*) new_global_ref((jobject) rhs.obj);
+            delete_global_ref(reinterpret_cast<jobject>(obj));
+            obj = (T*) new_global_ref(reinterpret_cast<jobject>(rhs.obj));
         }
         return *this;
     }
     template<typename U> ref& operator=(const ref<U>& rhs) {
         static_assert_instanceof((U*) nullptr, (T*) nullptr);
-        delete_global_ref((jobject) obj);
-        obj = (T*) new_global_ref((jobject) rhs.obj);
+        delete_global_ref(reinterpret_cast<jobject>(obj));
+        obj = (T*) new_global_ref(reinterpret_cast<jobject>(rhs.obj));
         return *this;
     }
 
     ref& operator=(ref&& rhs) {
         if (this != &rhs) {
-            delete_global_ref((jobject) obj);
+            delete_global_ref(reinterpret_cast<jobject>(obj));
             obj = rhs.obj;
             rhs.obj = nullptr;
         }
@@ -97,27 +97,27 @@ public:
     }
     template<typename U> ref& operator=(ref<U>&& rhs) {
         static_assert_instanceof((U*) nullptr, (T*) nullptr);
-        delete_global_ref((jobject) obj);
+        delete_global_ref(reinterpret_cast<jobject>(obj));
         obj = (T*) rhs.obj;
         rhs.obj = nullptr;
         return *this;
     }
 
     T* operator->() const {
-        return (T*) new_local_ref((jobject) obj);
+        return (T*) new_local_ref(reinterpret_cast<jobject>(obj));
     }
     operator T*() const {
-        return (T*) new_local_ref((jobject) obj);
+        return (T*) new_local_ref(reinterpret_cast<jobject>(obj));
     }
     operator bool() const {
         return obj;
     }
 
     template <typename U> bool operator==(const ref<U>& rhs) const {
-        return is_same_object((jobject) obj, (jobject) rhs.obj);
+        return is_same_object(reinterpret_cast<jobject>(obj), reinterpret_cast<jobject>(rhs.obj));
     }
     template <typename U> bool operator!=(const ref<U>& rhs) const {
-        return !is_same_object((jobject) obj, (jobject) rhs.obj);
+        return !is_same_object(reinterpret_cast<jobject>(obj), reinterpret_cast<jobject>(rhs.obj));
     }
 };
 
@@ -136,16 +136,16 @@ template <typename T> bool operator!=(std::nullptr_t, const ref<T>& rhs) {
 
 template<typename T> struct by_value {
     std::size_t operator()(const ref<T>& r) const {
-        return (std::size_t) get_hash_code((jobject) r.operator->());
+        return (std::size_t) get_hash_code(reinterpret_cast<jobject>(r.operator->()));
     }
     bool operator()(const ref<T>& lhs, const ref<T>& rhs) const {
-        return is_equal_object((jobject) lhs.operator->(), (jobject) rhs.operator->());
+        return is_equal_object(reinterpret_cast<jobject>(lhs.operator->()), reinterpret_cast<jobject>(rhs.operator->()));
     }
 };
 
 template<typename T> struct by_identity {
     std::size_t operator()(const ref<T>& r) const {
-        return (std::size_t) get_identity_hash_code((jobject) r.operator->());
+        return (std::size_t) get_identity_hash_code(reinterpret_cast<jobject>(r.operator->()));
     }
     bool operator()(const ref<T>& lhs, const ref<T>& rhs) const {
         return lhs == rhs;

@@ -33,15 +33,15 @@ WHATJNI_BASE std::string std_string(java::lang::String* str);
 WHATJNI_BASE std::u16string std_u16string(java::lang::String* str);
 
 inline java::lang::String* j_string(const char* str) {
-    return (java::lang::String*) new_string(str);
+    return reinterpret_cast<java::lang::String*>(new_string(str));
 }
 
 inline java::lang::String* j_string(const char16_t* str) {
-    return (java::lang::String*) new_string(str, std::char_traits<char16_t>::length(str));
+    return reinterpret_cast<java::lang::String*>(new_string(str, std::char_traits<char16_t>::length(str)));
 }
 
 inline java::lang::String* j_string(const char16_t* str, size_t length) {
-    return (java::lang::String*) new_string(str, length);
+    return reinterpret_cast<java::lang::String*>(new_string(str, length));
 }
 
 inline java::lang::String* j_string(const std::string& str) {
