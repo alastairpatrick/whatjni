@@ -1,6 +1,10 @@
 #ifndef WHATJNI_LOCAL_FRAME_H
 #define WHATJNI_LOCAL_FRAME_H
 
+#include "whatjni/base.h"
+
+#include <cassert>
+
 namespace whatjni {
 
 class local_frame {
