@@ -1,3 +1,4 @@
+#include "java/lang/Throwable.class.h"
 #include "whatjni/samples/Calculator.class.h"
 #include "initialize_classes.h"
 
@@ -15,7 +16,7 @@ int main(int argc, const char** argv) {
         auto result = calculator->calculate();
         std::cout << "Result of calculation was " << result << "\n";
     } catch (const jvm_exception& e) {
-        std::cout << "Exception " << e.get_message() << "\n";
+        std::cout << "Exception " << e.throwable << "\n";
     }
 }
 

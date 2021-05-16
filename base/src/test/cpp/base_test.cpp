@@ -165,43 +165,82 @@ TEST_F(BaseTest, get_identity_hash_code) {
     EXPECT_EQ(get_identity_hash_code(obj), get_identity_hash_code(obj));
 }
 
-TEST_F(BaseTest, string) {
-    jstring str = new_string((const jchar*) u"Hello", 5);
+TEST_F(BaseTest, new_string_utf16) {
+    jstring str = new_string(u"Hello", 5);
     jsize length = get_string_length(str);
     EXPECT_EQ(length, 5);
 
-    const char16_t* chars = (const char16_t*) get_string_chars(str, nullptr);
+    char16_t chars[32] = {};
+    get_string_region(str, 0, length, chars);
     EXPECT_EQ(std::u16string(chars, length), std::u16string(u"Hello"));
-    release_string_chars(str, (const jchar*) chars);
 }
 
-TEST_F(BaseTest, utf8_string_fast_path) {
-    jstring str = new_utf_string("Hello", 5);
+TEST_F(BaseTest, new_string_utf16_with_internal_null) {
+    jstring str = new_string(u"\u0000Hello", 6);
+    jsize length = get_string_length(str);
+    EXPECT_EQ(length, 6);
+
+    char16_t chars[32] = {};
+    get_string_region(str, 0, length, chars);
+    EXPECT_EQ(std::u16string(chars, length), std::u16string(u"\u0000Hello", 6));
+}
+
+TEST_F(BaseTest, new_string_multibyte) {
+    jstring str = new_string("Hello");
     jsize length = get_string_length(str);
     EXPECT_EQ(length, 5);
 
-    const char16_t* chars = (const char16_t*) get_string_chars(str, nullptr);
+    char16_t chars[32] = {};
+    get_string_region(str, 0, length, chars);
     EXPECT_EQ(std::u16string(chars, length), std::u16string(u"Hello"));
-    release_string_chars(str, (const jchar*) chars);
 }
 
-TEST_F(BaseTest, utf8_string_slow_path) {
-    jstring str = new_utf_string("Hello\xf0\x9f\x9c\x81", 9);
+TEST_F(BaseTest, new_string_multibyte_with_internal_null) {
+    jstring str = new_string("\xC0\x80Hello");
     jsize length = get_string_length(str);
-    EXPECT_EQ(length, 7);
+    EXPECT_EQ(length, 6);
 
-    const char16_t* chars = (const char16_t*) get_string_chars(str, nullptr);
-    EXPECT_EQ(std::u16string(chars, length), std::u16string(u"Hello\xD83D\xDF01"));
-    release_string_chars(str, (const jchar*) chars);
-}
-
-TEST_F(BaseTest, utf8_string_with_internal_null) {
-    jstring str = new_utf_string("\x00Hello", 6);
-    EXPECT_EQ(get_string_length(str), 6);
-
-    const char16_t* chars = (const char16_t*) get_string_chars(str, nullptr);
+    char16_t chars[32] = {};
+    get_string_region(str, 0, length, chars);
     EXPECT_EQ(chars, std::u16string(u"\u0000Hello"));
-    release_string_chars(str, (const jchar*) chars);
+}
+
+TEST_F(BaseTest, get_string_utf16_chars_critical) {
+    jstring str = new_string(u"\u0000Hello", 6);
+
+    jboolean is_copy;
+    const char16_t* chars = get_string_utf16_chars_critical(str, &is_copy);
+    EXPECT_EQ(std::u16string(u"\u0000Hello", 6), std::u16string(chars, 6));
+    release_string_utf16_chars_critical(str, chars);
+}
+
+TEST_F(BaseTest, get_string_multibyte_chars) {
+    jstring str = new_string(u"\u0000Hello", 6);
+
+    jboolean is_copy;
+    const char* chars = get_string_multibyte_chars(str, &is_copy);
+    EXPECT_EQ(std::string("\xC0\x80Hello", 7), std::string(chars, 7));
+    release_string_multibyte_chars(str, chars);
+}
+
+TEST_F(BaseTest, get_string_region_utf16) {
+    jstring str = new_string(u"\u0000Hello", 6);
+    jsize length = get_string_length(str);
+    EXPECT_EQ(length, 6);
+
+    char16_t chars[32] = {};
+    get_string_region(str, 0, length, chars);
+    EXPECT_EQ(std::u16string(chars, length), std::u16string(u"\u0000Hello", 6));
+}
+
+TEST_F(BaseTest, get_string_region_multibyte) {
+    jstring str = new_string(u"\u0000Hello", 6);
+    jsize length = get_string_length(str);
+    EXPECT_EQ(length, 6);
+
+    char chars[32] = {};
+    get_string_region(str, 0, length, chars);
+    EXPECT_EQ(std::string(chars, 7), std::string("\xC0\x80Hello", 7));
 }
 
 TEST_F(BaseTest, new_primitive_array) {

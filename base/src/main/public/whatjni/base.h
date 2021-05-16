@@ -2,7 +2,6 @@
 #define WHATJNI_BASE_H
 
 #include "whatjni/jni.h"
-#include "utf8.h"
 
 #include <string>
 #include <vector>
@@ -67,34 +66,39 @@ WHATJNI_EACH_PRIMITIVE_TYPE()         \
 X(jobject)                            \
 
 
+namespace java {
+namespace lang {
+class Throwable;
+}  // namespace lang
+}  // namespace java
+
 namespace whatjni {
 
 // For errors returned by Java Invocation API.
 class WHATJNI_BASE jvm_error {
-    jint error_;
 public:
+    const jint error;
+
     explicit jvm_error(jint error);
     jvm_error(const jvm_error&);
     ~jvm_error();
 
-    jint error() { return error_; }
-
     jvm_error& operator=(const jvm_error&) = delete;
 };
+static_assert(std::is_standard_layout<jvm_error>::value);
 
 // Thrown when JVM exception detected.
 class WHATJNI_BASE jvm_exception {
-    jobject exception_;
 public:
+    java::lang::Throwable* const throwable;
+
     explicit jvm_exception(jobject exception);
     jvm_exception(const jvm_exception& rhs);
-    jvm_exception(jvm_exception&& rhs);
     ~jvm_exception();
 
     jvm_exception& operator=(const jvm_exception&) = delete;
-
-    std::string get_message() const;
 };
+static_assert(std::is_standard_layout<jvm_exception>::value);
 
 struct vm_config {
     explicit vm_config(jint version): version(version) {}
@@ -131,6 +135,7 @@ WHATJNI_BASE jint get_identity_hash_code(jobject obj);
 WHATJNI_BASE jobject new_local_ref(jobject obj);
 WHATJNI_BASE void delete_local_ref(jobject obj);
 WHATJNI_BASE jobject new_global_ref(jobject obj);
+WHATJNI_BASE jobject new_global_ref_then_delete_local_ref(jobject obj);
 WHATJNI_BASE void delete_global_ref(jobject obj);
 WHATJNI_BASE jobject new_weak_global_ref(jobject obj);
 WHATJNI_BASE void delete_weak_global_ref(jobject obj);
@@ -203,12 +208,31 @@ WHATJNI_BASE void call_static_method(jclass clazz, jmethodID method, ...);
 WHATJNI_EACH_JAVA_TYPE()
 #undef X
 
-WHATJNI_BASE jstring new_string(const jchar* str, jsize length);
-WHATJNI_BASE jstring new_utf_string(const char* str, jsize length);
-WHATJNI_BASE jstring new_utf_string(const char* str);
+// JNI has two ways of representing string data to native code:
+//  1) a multibyte representation referred to as "UTF" that does not correspond to any UTF standard
+//  2) actual UTF-16
+//
+// Yes, it's backwards!
+//
+// The proprietary multibyte encoding is generally not UTF-8. It uses the same representation as UTF-8 for strings
+// that do not contain null characters or characters outside the Basic Multilingual Plane. Otherwise it is different
+// from UTF-8. See the section "Modified UTF-8 Strings" in the JNI specification.
+//
+// https://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/types.html#wp16542
+//
+// It is appropriate to use char to represent multibyte characters, since char does not imply any particular character
+// encoding. We use char16_t to represent UTF-16 characters, since char16_t is specifically for UTF-16.
+WHATJNI_BASE jstring new_string(const char16_t* str, jsize length);
+WHATJNI_BASE jstring new_string(const char* str);
 WHATJNI_BASE jsize get_string_length(jstring str);
-WHATJNI_BASE const jchar* get_string_chars(jstring str, jboolean* is_copy);
-WHATJNI_BASE void release_string_chars(jstring str, const jchar* chars);
+WHATJNI_BASE jsize get_string_multibyte_size(jstring str);
+WHATJNI_BASE const char16_t* get_string_utf16_chars_critical(jstring str, jboolean* is_copy);
+WHATJNI_BASE void release_string_utf16_chars_critical(jstring str, const char16_t* chars);
+WHATJNI_BASE const char* get_string_multibyte_chars(jstring str, jboolean* is_copy);
+WHATJNI_BASE void release_string_multibyte_chars(jstring str, const char* chars);
+WHATJNI_BASE void get_string_region(jstring str, jsize start, jsize length, char16_t* chars);
+WHATJNI_BASE void get_string_region(jstring str, jsize start, jsize length, char* chars);
+WHATJNI_BASE jstring to_string(jobject obj);
 
 template <typename T> jarray new_primitive_array(jsize size);
 

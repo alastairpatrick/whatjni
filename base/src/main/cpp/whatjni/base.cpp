@@ -1,5 +1,4 @@
 #include "whatjni/base.h"
-#include "utf8.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -39,50 +38,31 @@ static JNI_CreateJavaVMFunc JNI_CreateJavaVM;
 static jclass g_object_class;
 static jmethodID g_equals_method;
 static jmethodID g_hash_code_method;
+static jmethodID g_to_string_method;
 
 static jclass g_system_class;
 static jmethodID g_identity_hash_code_method;
 
-jvm_error::jvm_error(jint error): error_(error) {
+jvm_error::jvm_error(jint error): error(error) {
 }
 
-jvm_error::jvm_error(const jvm_error& rhs): error_(rhs.error_) {
+jvm_error::jvm_error(const jvm_error& rhs): error(rhs.error) {
 }
 
 jvm_error::~jvm_error() {
 }
 
-jvm_exception::jvm_exception(jobject exception): exception_(exception) {
+// Replaces the throwable local ref with a global one. This is because throwing the exception might cause local frames
+// to be popped before the exception is handled, which would cause a local ref to become invalid.
+jvm_exception::jvm_exception(jobject throwable):
+    throwable(reinterpret_cast<java::lang::Throwable*>(new_global_ref_then_delete_local_ref(throwable))) {
 }
 
-jvm_exception::jvm_exception(const jvm_exception& rhs) {
-    exception_ = g_env->NewLocalRef(rhs.exception_);
-}
-
-jvm_exception::jvm_exception(jvm_exception&& rhs) {
-    exception_ = rhs.exception_;
-    rhs.exception_ = nullptr;
+jvm_exception::jvm_exception(const jvm_exception& rhs): jvm_exception(reinterpret_cast<jobject>(rhs.throwable)) {
 }
 
 jvm_exception::~jvm_exception() {
-    g_env->DeleteLocalRef(exception_);
-}
-
-std::string jvm_exception::get_message() const {
-    static jclass clazz = find_class("java/lang/Throwable");
-    static jmethodID method = get_method_id(clazz, "getMessage", "()Ljava/lang/String;");
-    jstring message = (jstring) call_method<jobject>(exception_, method);
-    if (message) {
-        jsize length = get_string_length(message);
-        jboolean is_copy;
-        const char16_t* chars = (const char16_t*) get_string_chars(message, &is_copy);
-        std::string result;
-        utf8::utf16to8(chars, chars + length, std::back_inserter(result));
-        release_string_chars(message, (const jchar*) chars);
-        return result;
-    } else {
-        return "null";
-    }
+    delete_global_ref(reinterpret_cast<jobject>(throwable));
 }
 
 static void check_error(int error_code) {
@@ -210,6 +190,7 @@ void initialize_vm(const vm_config& config) {
     g_object_class = find_class("java/lang/Object");
     g_equals_method = get_method_id(g_object_class, "equals", "(Ljava/lang/Object;)Z");
     g_hash_code_method = get_method_id(g_object_class, "hashCode", "()I");
+    g_to_string_method = get_method_id(g_object_class, "toString", "()Ljava/lang/String;");
 
     g_system_class = find_class("java/lang/System");
     g_identity_hash_code_method = get_static_method_id(g_system_class, "identityHashCode", "(Ljava/lang/Object;)I");
@@ -222,8 +203,7 @@ void shutdown_vm() {
 
 jclass find_class(const char* name) {
     jclass local = check_exception(g_env->FindClass(name));
-    jclass global = (jclass) new_global_ref(local);
-    delete_local_ref(local);
+    jclass global = (jclass) new_global_ref_then_delete_local_ref(local);
     return global;
 }
 
@@ -308,6 +288,12 @@ void delete_local_ref(jobject obj) {
 
 jobject new_global_ref(jobject obj) {
     return check_exception(g_env->NewGlobalRef(obj));
+}
+
+jobject new_global_ref_then_delete_local_ref(jobject local) {
+    jobject global = new_global_ref(local);
+    delete_local_ref(local);
+    return global;
 }
 
 void delete_global_ref(jobject obj) {
@@ -809,70 +795,52 @@ jobject call_static_method(jclass clazz, jmethodID method, ...) {
     return check_exception(result);
 }
 
-jstring new_string(const jchar* str, jsize length) {
-    return check_exception(g_env->NewString(str, length));
+jstring new_string(const char16_t* str, jsize length) {
+    return check_exception(g_env->NewString(reinterpret_cast<const jchar*>(str), length));
 }
 
-// The JNI "modified UTF-8" encoding differs from UTF-8 in its representation of null characters and characters
-// requiring a 4-byte sequence in UTF-8. In that case, transcode to a temporary UTF-16 string before passing
-// to JNI API.
-// https://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/types.html#wp16542
-static jstring new_slow_utf8_string(const char* str, jsize length) {
-    std::u16string str16;
-    str16.reserve(length);
-    utf8::utf8to16(str, str + length, std::back_inserter(str16));
-    return g_env->NewString((const jchar*) str16.data(), str16.length());
+jstring new_string(const char* str) {
+    return g_env->NewStringUTF(str);
 }
-
-jstring new_utf_string(const char* str, jsize length) {
-    bool fastPath = true;
-    for (size_t i = 0; i < length; ++i) {
-        char c = str[i];
-        if (((unsigned char) (c - 1)) >= 0xEF) {  // null character or first byte of a 4 byte character
-            fastPath = false;
-            break;
-        }
-    }
-
-    if (fastPath) {
-        return g_env->NewStringUTF(str);
-    } else {
-        return new_slow_utf8_string(str, length);
-    }
-}
-
-jstring new_utf_string(const char* str) {
-    jsize length = 0;
-    bool fastPath = true;
-    for (size_t i = 0;; ++i) {
-        char c = str[i];
-        if (c == 0) {
-            length = i;
-            break;
-        } else if (((unsigned char) c) >= 0xF0) {
-            fastPath = false;
-        }
-    }
-
-    if (fastPath) {
-        return g_env->NewStringUTF(str);
-    } else {
-        return new_slow_utf8_string(str, length);
-    }
-}
-
 
 jsize get_string_length(jstring str) {
     return check_exception(g_env->GetStringLength(str));
 }
 
-const jchar* get_string_chars(jstring str, jboolean* is_copy) {
-    return check_exception(g_env->GetStringChars(str, is_copy));
+jsize get_string_multibyte_size(jstring str) {
+    return check_exception(g_env->GetStringUTFLength(str));
 }
 
-void release_string_chars(jstring str, const jchar* chars) {
-    g_env->ReleaseStringChars(str, chars);
+const char16_t* get_string_utf16_chars_critical(jstring str, jboolean* is_copy) {
+    return check_exception(reinterpret_cast<const char16_t*>(g_env->GetStringCritical(str, is_copy)));
+}
+
+void release_string_utf16_chars_critical(jstring str, const char16_t* chars) {
+    g_env->ReleaseStringCritical(str, reinterpret_cast<const jchar*>(chars));
     check_exception();
+}
+
+const char* get_string_multibyte_chars(jstring str, jboolean* is_copy) {
+    return check_exception(g_env->GetStringUTFChars(str, is_copy));
+}
+
+void release_string_multibyte_chars(jstring str, const char* chars) {
+    g_env->ReleaseStringUTFChars(str, chars);
+    check_exception();
+}
+
+void get_string_region(jstring str, jsize start, jsize length, char16_t* chars) {
+    g_env->GetStringRegion(str, start, length, reinterpret_cast<jchar*>(chars));
+    check_exception();
+}
+
+void get_string_region(jstring str, jsize start, jsize length, char* chars) {
+    g_env->GetStringUTFRegion(str, start, length, chars);
+    check_exception();
+}
+
+jstring to_string(jobject obj) {
+    return check_exception(reinterpret_cast<jstring>(call_method<jobject>(obj, g_to_string_method)));
 }
 
 template <>

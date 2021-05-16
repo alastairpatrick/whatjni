@@ -7,6 +7,7 @@
 #include "java/lang/Double.class.h"
 #include "java/lang/String.class.h"
 #include "java/lang/System.class.h"
+#include "java/lang/Throwable.class.h"
 #include "org/apache/commons/math3/stat/descriptive/SummaryStatistics.class.h"
 #include "org/apache/commons/math3/stat/descriptive/StatisticalSummary.class.h"
 
@@ -59,6 +60,6 @@ int main(int argc, const char **argv) {
         System::out->println(j_string(stream.str()));
 
     } catch (const jvm_exception& e) {
-        std::cout << "Exception " << e.get_message() << "\n";
+        std::cout << "Exception " << e.throwable << "\n";
     }
 }
