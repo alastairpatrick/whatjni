@@ -47,7 +47,7 @@ inline java::lang::String* j_string(const char16_t* str, size_t length) {
 inline java::lang::String* j_string(const std::string& str) {
     // There should be no internal null bytes; JNI multibyte encoding represents null characters with the two byte
     // sequence [0xC0, 0x80].
-    assert(str.length() == strlen(str.c_str()));
+    assert(str.length() == std::char_traits<char>::length(str.c_str()));
     return j_string(str.c_str());
 }
 
@@ -58,7 +58,7 @@ inline java::lang::String* j_string(const std::u16string& str) {
 inline java::lang::String* operator ""_j(const char* str, std::size_t length) {
     // There should be no internal null bytes; JNI multibyte encoding represents null characters with the two byte
     // sequence [0xC0, 0x80].
-    assert(length == strlen(str));
+    assert(length == std::char_traits<char>::length(str));
     return j_string(str);
 }
 
