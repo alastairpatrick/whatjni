@@ -1,6 +1,3 @@
 [submodule "thirdparty/googletest/googletest"]
 	path = thirdparty/googletest/googletest
 	url = https://github.com/google/googletest
-[submodule "thirdparty/utfcpp/utfcpp"]
-	path = thirdparty/utfcpp/utfcpp
-	url = https://github.com/nemtrif/utfcpp.git

@@ -4,5 +4,4 @@ include 'samples:javacaller'
 include 'samples:nativecallee'
 include 'samples:statistics'
 include 'thirdparty:googletest'
-include 'thirdparty:utfcpp'
 
