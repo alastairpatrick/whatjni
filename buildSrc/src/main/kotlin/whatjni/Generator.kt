@@ -413,6 +413,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
 
                 implWriter.writeln_r("$jniReturnType ${classModel.escapedClassName}::$jniName($jniParameters) {")
                 implWriter.writeln("whatjni::initialize_thread(env);")
+                implWriter.writeln_r("try {")
 
                 implWriter.write("return ")
                 when (type.returnType.sort) {
@@ -436,7 +437,17 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
                     ++i
                 }
                 implWriter.writeln(");")
+
+                implWriter.writeln_lr("} catch (const whatjni::jvm_exception& e) {")
+                implWriter.writeln("e.schedule();")
+                implWriter.writeln_lr("} catch (const std::exception& e) {")
+                implWriter.writeln("schedule_new_runtime_exception(e.what());")
+                implWriter.writeln_lr("} catch (...) {")
+                implWriter.writeln("schedule_new_runtime_exception(\"Unknown exception type\");")
                 implWriter.writeln_l("}")
+
+                implWriter.writeln_l("}")
+                implWriter.writeln()
             }
         }
     }

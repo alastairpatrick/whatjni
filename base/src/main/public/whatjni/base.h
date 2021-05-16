@@ -93,10 +93,13 @@ public:
     java::lang::Throwable* const throwable;
 
     explicit jvm_exception(jobject exception);
+    explicit jvm_exception(java::lang::Throwable*);
     jvm_exception(const jvm_exception& rhs);
     ~jvm_exception();
 
     jvm_exception& operator=(const jvm_exception&) = delete;
+
+    void schedule() const;
 };
 static_assert(std::is_standard_layout<jvm_exception>::value);
 
@@ -141,6 +144,7 @@ WHATJNI_BASE jobject new_weak_global_ref(jobject obj);
 WHATJNI_BASE void delete_weak_global_ref(jobject obj);
 WHATJNI_BASE jobjectRefType get_object_ref_type(jobject obj);
 
+WHATJNI_BASE void schedule_new_runtime_exception(const char* message);
 WHATJNI_BASE void print_exception();
 
 

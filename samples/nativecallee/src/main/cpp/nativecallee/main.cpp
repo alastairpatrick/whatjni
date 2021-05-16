@@ -1,4 +1,5 @@
 #include "java/lang/Throwable.class.h"
+#include "java/lang/RuntimeException.class.h"
 #include "whatjni/samples/Calculator.class.h"
 #include "initialize_classes.h"
 
@@ -8,7 +9,9 @@ using whatjni::samples::Calculator;
 using namespace whatjni;
 
 int main(int argc, const char** argv) {
-    initialize_vm(vm_config(JNI_VERSION_1_8));
+    vm_config config(JNI_VERSION_1_8);
+    config.extra.push_back("-Xcheck:jni");
+    initialize_vm(config);
     initialize_classes();
 
     try {
@@ -21,6 +24,8 @@ int main(int argc, const char** argv) {
 }
 
 jint Calculator::native_staticAdd(jint a, jint b) {
+    //throw std::runtime_error("Foo");
+    //throw jvm_exception(java::lang::RuntimeException::new_object("Bar"_j));
     return a + b;
 }
 

@@ -43,6 +43,8 @@ static jmethodID g_to_string_method;
 static jclass g_system_class;
 static jmethodID g_identity_hash_code_method;
 
+static jclass g_runtime_exception_class;
+
 jvm_error::jvm_error(jint error): error(error) {
 }
 
@@ -52,28 +54,40 @@ jvm_error::jvm_error(const jvm_error& rhs): error(rhs.error) {
 jvm_error::~jvm_error() {
 }
 
-// Replaces the throwable local ref with a global one. This is because throwing the exception might cause local frames
-// to be popped before the exception is handled, which would cause a local ref to become invalid.
-jvm_exception::jvm_exception(jobject throwable):
-    throwable(reinterpret_cast<java::lang::Throwable*>(new_global_ref_then_delete_local_ref(throwable))) {
-}
-
-jvm_exception::jvm_exception(const jvm_exception& rhs): jvm_exception(reinterpret_cast<jobject>(rhs.throwable)) {
-}
-
-jvm_exception::~jvm_exception() {
-    delete_global_ref(reinterpret_cast<jobject>(throwable));
-}
-
 static void check_error(int error_code) {
     if (error_code != JNI_OK) {
         throw jvm_error(error_code);
     }
 }
 
+// Replaces the throwable local ref with a global one. This is because throwing the exception might cause local frames
+// to be popped before the exception is handled, which would cause a local ref to become invalid.
+jvm_exception::jvm_exception(jobject throwable):
+    throwable(reinterpret_cast<java::lang::Throwable*>(new_global_ref(throwable))) {
+}
+
+jvm_exception::jvm_exception(java::lang::Throwable* throwable): jvm_exception(reinterpret_cast<jobject>(throwable)) {
+}
+
+jvm_exception::jvm_exception(const jvm_exception& rhs): jvm_exception(rhs.throwable) {
+}
+
+jvm_exception::~jvm_exception() {
+    // Don't call delete_global_ref; it will call check_exception, which will throw if one is scheduled.
+    g_env->DeleteGlobalRef(reinterpret_cast<jobject>(throwable));
+}
+
+void jvm_exception::schedule() const {
+    check_error(g_env->Throw(reinterpret_cast<jthrowable>(new_local_ref(reinterpret_cast<jobject>(throwable)))));
+    // Don't check_exception!
+}
+
 static void check_exception() {
     jobject exception = g_env->ExceptionOccurred();
     if (exception) {
+#ifndef NDEBUG
+        print_exception();
+#endif
         g_env->ExceptionClear();
         throw jvm_exception(exception);
     }
@@ -194,6 +208,8 @@ void initialize_vm(const vm_config& config) {
 
     g_system_class = find_class("java/lang/System");
     g_identity_hash_code_method = get_static_method_id(g_system_class, "identityHashCode", "(Ljava/lang/Object;)I");
+
+    g_runtime_exception_class = find_class("java/lang/RuntimeException");
 }
 
 void shutdown_vm() {
@@ -312,6 +328,11 @@ void delete_weak_global_ref(jobject obj) {
 
 jobjectRefType get_object_ref_type(jobject obj) {
     return check_exception(g_env->GetObjectRefType(obj));
+}
+
+void schedule_new_runtime_exception(const char* message) {
+    check_error(g_env->ThrowNew(g_runtime_exception_class, message));
+    // Don't check_exception!
 }
 
 void print_exception() {
