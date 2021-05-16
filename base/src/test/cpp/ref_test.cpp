@@ -156,7 +156,7 @@ TEST_F(RefTest, arrow_returns_local_ref) {
 
 TEST_F(RefTest, conversion_to_pointer_returns_local_ref) {
     ref<Point> ref1(obj1);
-    Point* local = (Point*) ref1;
+    Point* local = static_cast<Point*>(ref1);
     EXPECT_TRUE(local);
     EXPECT_EQ(get_object_ref_type((jobject) local), JNILocalRefType);
 }
@@ -201,7 +201,7 @@ TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_identity_equalit
     ref<Point> ref2(obj2);
     ref<Point> ref3;
 
-    std::unordered_map<ref<Point>, int, by_identity<Point>, by_identity<Point>> map;
+    std::unordered_map<ref<Point>, int, by_same<Point>, by_same<Point>> map;
     map[ref1] = 1;
     map[ref2] = 2;
     map[ref3] = 3;
@@ -215,14 +215,14 @@ TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_value_equality) 
     jfieldID field = get_field_id(clazz, "x", "I");
 
     ref<Point> ref1(obj1);
-    set_field((jobject) ref1.operator->(), field, jint(1));
+    set_field(reinterpret_cast<jobject>(ref1.operator->()), field, jint(1));
 
     ref<Point> ref2(obj2);
-    set_field((jobject) ref2.operator->(), field, jint(2));
+    set_field(reinterpret_cast<jobject>(ref2.operator->()), field, jint(2));
 
     ref<Point> ref3;
 
-    std::unordered_map<ref<Point>, int, by_value<Point>, by_value<Point>> map;
+    std::unordered_map<ref<Point>, int, by_equals<Point>, by_equals<Point>> map;
     map[ref1] = 1;
     map[ref2] = 2;
     map[ref3] = 3;
@@ -236,10 +236,10 @@ TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_default_value_eq
     jfieldID field = get_field_id(clazz, "x", "I");
 
     ref<Point> ref1(obj1);
-    set_field((jobject) ref1.operator->(), field, jint(1));
+    set_field(reinterpret_cast<jobject>(ref1.operator->()), field, jint(1));
 
     ref<Point> ref2(obj2);
-    set_field((jobject) ref2.operator->(), field, jint(2));
+    set_field(reinterpret_cast<jobject>(ref2.operator->()), field, jint(2));
 
     ref<Point> ref3;
 
@@ -253,21 +253,4 @@ TEST_F(RefTest, can_use_ref_as_key_in_unordered_collection_with_default_value_eq
     ASSERT_EQ(map[ref3], 3);
 }
 
-/*
-TEST_F(RefTest, c_string_to_object_ref) {
-    ref<java::lang::String> str("hello");
-    EXPECT_EQ(str->to_std_string(), "hello");
-
-    str = "foo";
-    EXPECT_EQ(str->to_std_string(), "foo");
-}
-
-TEST_F(RefTest, std_string_to_object_ref) {
-    ref<java::lang::String> str(std::string("hello"));
-    EXPECT_EQ(str->to_std_string(), "hello");
-
-    str = std::string("foo");
-    EXPECT_EQ(str->to_std_string(), "foo");
-}
-*/
 }  // namespace whatjni

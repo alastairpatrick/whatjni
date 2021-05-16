@@ -21,6 +21,7 @@ class String;
 #include "java/lang/Object.class.h"
 
 #include "whatjni/array.h"
+#include "whatjni/equality.h"
 #include "whatjni/string.h"
 
 

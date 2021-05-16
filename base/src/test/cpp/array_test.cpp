@@ -1,5 +1,7 @@
 #include "whatjni/array.h"
 #include "whatjni/local_frame.h"
+#include "whatjni/equality.h"
+#include "java/lang/Object.class.h"
 
 #include "gtest/gtest.h"
 
@@ -7,7 +9,7 @@ namespace whatjni {
 
 namespace {
 
-struct Point {
+struct Point : java::lang::Object {
     static std::string get_signature() {
         return "Ljava/awt/Point;";
     }
@@ -116,7 +118,7 @@ TEST_F(ArrayTest, set_then_get_object_element) {
         obj_array->set_data(i, obj);
     }
     for (int i = 0; i < obj_array->get_length(); ++i) {
-        EXPECT_TRUE(is_same_object((jobject) obj_array->get_data(i), (jobject) obj));
+        EXPECT_TRUE(same(obj_array->get_data(i), obj));
     }
 }
 
@@ -127,7 +129,7 @@ TEST_F(ArrayTest, nested_primitive_array) {
 
 TEST_F(ArrayTest, set_then_get_nested_int_element) {
     nested_int_array->set_data(0, int_array);
-    EXPECT_TRUE(is_same_object((jobject) nested_int_array->get_data(0), (jobject) int_array));
+    EXPECT_TRUE(same(nested_int_array->get_data(0), int_array));
 }
 
 TEST_F(ArrayTest, nested_obj_array) {
@@ -137,7 +139,7 @@ TEST_F(ArrayTest, nested_obj_array) {
 
 TEST_F(ArrayTest, set_then_get_nested_object_element) {
     nested_obj_array->set_data(0, obj_array);
-    EXPECT_TRUE(is_same_object((jobject) nested_obj_array->get_data(0), (jobject) obj_array));
+    EXPECT_TRUE(same(nested_obj_array->get_data(0), obj_array));
 }
 
 }  // namespace whatjni

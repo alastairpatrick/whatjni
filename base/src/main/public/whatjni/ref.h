@@ -134,7 +134,7 @@ template <typename T> bool operator!=(std::nullptr_t, const ref<T>& rhs) {
     return rhs;
 }
 
-template<typename T> struct by_value {
+template<typename T> struct by_equals {
     std::size_t operator()(const ref<T>& r) const {
         return (std::size_t) get_hash_code(reinterpret_cast<jobject>(r.operator->()));
     }
@@ -143,7 +143,7 @@ template<typename T> struct by_value {
     }
 };
 
-template<typename T> struct by_identity {
+template<typename T> struct by_same {
     std::size_t operator()(const ref<T>& r) const {
         return (std::size_t) get_identity_hash_code(reinterpret_cast<jobject>(r.operator->()));
     }
@@ -158,7 +158,7 @@ namespace std {
 
 template<typename T> struct hash<::whatjni::ref<T>> {
     // must not be by_value<T>. by_identity<T> for consistency with std::equal_to<ref<T>>.
-    ::whatjni::by_identity<T> hasher;
+    ::whatjni::by_same<T> hasher;
     std::size_t operator()(const ::whatjni::ref<T>& r) const {
         return hasher(r);
     }
