@@ -9,13 +9,13 @@ template <typename T> class array;
 
 // T does not correspond to a Java type. Did you forget append pointer type with '*'?
 template <typename T>
-struct TypeTraits {
+struct traits {
 };
 
-// TypeTraits for all types that are Java classes, i.e. those types that are not Java primitive types. Specialized later
+// traits for all types that are Java classes, i.e. those types that are not Java primitive types. Specialized later
 // for each of the eight primitive types.
 template <typename T>
-struct TypeTraits<T*> {
+struct traits<T*> {
     // How this type is communicated with the low level base API.
     typedef jobject BaseType;
     static T* from_base(BaseType value) {
@@ -27,7 +27,7 @@ struct TypeTraits<T*> {
 
     // Create an array of this type of the given length.
     static array<T*>* new_array(jsize size) {
-        return (array<T*>*) new_object_array(size, TypeTraits<T*>::get_class(), nullptr);
+        return (array<T*>*) new_object_array(size, traits<T*>::get_class(), nullptr);
     }
 
     // JVM signature for this type, "Ljava/lang/String;" style for classes.
@@ -51,7 +51,7 @@ private:
 };
 
 template <typename T>
-struct PrimitiveTypeTraits {
+struct primitive_traits {
     typedef T BaseType;
 
     static array<T>* new_array(jsize size) {
@@ -68,56 +68,56 @@ struct PrimitiveTypeTraits {
 };
 
 template <>
-struct TypeTraits<jboolean> : PrimitiveTypeTraits<jboolean> {
+struct traits<jboolean> : primitive_traits<jboolean> {
     static std::string get_signature() {
         return "Z";
     }
 };
 
 template <>
-struct TypeTraits<jbyte> : PrimitiveTypeTraits<jbyte> {
+struct traits<jbyte> : primitive_traits<jbyte> {
     static std::string get_signature() {
         return "B";
     }
 };
 
 template <>
-struct TypeTraits<jshort> : PrimitiveTypeTraits<jshort> {
+struct traits<jshort> : primitive_traits<jshort> {
     static std::string get_signature() {
         return "S";
     }
 };
 
 template <>
-struct TypeTraits<jint> : PrimitiveTypeTraits<jint> {
+struct traits<jint> : primitive_traits<jint> {
     static std::string get_signature() {
         return "I";
     }
 };
 
 template <>
-struct TypeTraits<jlong> : PrimitiveTypeTraits<jlong> {
+struct traits<jlong> : primitive_traits<jlong> {
     static std::string get_signature() {
         return "J";
     }
 };
 
 template <>
-struct TypeTraits<jchar> : PrimitiveTypeTraits<jchar> {
+struct traits<jchar> : primitive_traits<jchar> {
     static std::string get_signature() {
         return "C";
     }
 };
 
 template <>
-struct TypeTraits<jfloat> : PrimitiveTypeTraits<jfloat> {
+struct traits<jfloat> : primitive_traits<jfloat> {
     static std::string get_signature() {
         return "F";
     }
 };
 
 template <>
-struct TypeTraits<jdouble> : PrimitiveTypeTraits<jdouble> {
+struct traits<jdouble> : primitive_traits<jdouble> {
     static std::string get_signature() {
         return "D";
     }

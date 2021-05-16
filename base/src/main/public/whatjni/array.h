@@ -1,7 +1,7 @@
 #ifndef WHATJNI_ARRAY_H
 #define WHATJNI_ARRAY_H
 
-#include "whatjni/type_traits.h"
+#include "whatjni/traits.h"
 #include "java/lang/Object.class.h"
 
 namespace whatjni {
@@ -77,7 +77,7 @@ class array : public java::lang::Object {
 
 public:
     static std::string get_signature() {
-        return "[" + TypeTraits<T>::get_signature();
+        return "[" + traits<T>::get_signature();
     }
 
     jsize get_length() {
@@ -86,10 +86,10 @@ public:
     WHATJNI_IF_PROPERTY(__declspec(property(get=get_length)) jsize length;)
 
     void set_data(jsize idx, T value) {
-        set_array_element((jarray) this, idx, TypeTraits<T>::to_base(value));
+        set_array_element((jarray) this, idx, traits<T>::to_base(value));
     }
     T get_data(jsize idx) {
-        return TypeTraits<T>::from_base(get_array_element<typename TypeTraits<T>::BaseType>((jarray) this, idx));
+        return traits<T>::from_base(get_array_element<typename traits<T>::BaseType>((jarray) this, idx));
     }
     WHATJNI_IF_PROPERTY(__declspec(property(get=get_data, put=set_data)) T data[];)
 
@@ -109,7 +109,7 @@ public:
 
 template<typename R>
 array<R>* new_array(jsize size) {
-    return TypeTraits<R>::new_array(size);
+    return traits<R>::new_array(size);
 }
 
 }  // namespace whatjni
