@@ -313,6 +313,7 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
         }
 
         writeMethodRegistration()
+        writeDescriptor()
 
         headerWriter.writeln_l("};")
         headerWriter.writeln("static_assert(std::is_standard_layout<$unqualifiedClassName>::value, \"Must be standard layout.\");")
@@ -479,6 +480,14 @@ class Generator(val generatedDir: File, val classMap: ClassMap, val implementsNa
             implWriter.writeln("whatjni::register_natives(clazz, methods, ${nativeMethods.size});")
         }
 
+        implWriter.writeln_l("}")
+    }
+
+    private fun writeDescriptor() {
+        headerWriter.writeln_lr("public:")
+        headerWriter.writeln("static std::string get_signature();")
+        implWriter.writeln_r("std::string ${classModel.escapedClassName}::get_signature() {")
+        implWriter.writeln("return \"L${classModel.unescapedName};\";")
         implWriter.writeln_l("}")
     }
 

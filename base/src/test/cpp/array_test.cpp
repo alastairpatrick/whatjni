@@ -8,11 +8,6 @@ namespace whatjni {
 namespace {
 
 struct Point {
-    static jclass get_class() {
-        static jclass clazz = find_class("java/awt/Point");
-        return clazz;
-    };
-
     static std::string get_signature() {
         return "Ljava/awt/Point;";
     }
@@ -22,6 +17,7 @@ struct Point {
 
 struct ArrayTest: testing::Test {
     ArrayTest() {
+        pointClass = find_class("java/awt/Point");
         int_array = new_array<jint>(3);
         obj_array = new_array<Point*>(3);
         nested_int_array = new_array<array<jint>*>(1);
@@ -29,6 +25,7 @@ struct ArrayTest: testing::Test {
     }
 
     local_frame frame;
+    jclass pointClass;
     array<jint>* int_array;
     array<Point*>* obj_array;
     array<array<jint>*>* nested_int_array;
@@ -113,7 +110,7 @@ TEST_F(ArrayTest, object_array) {
 }
 
 TEST_F(ArrayTest, set_then_get_object_element) {
-    Point* obj = (Point*) alloc_object(Point::get_class());
+    Point* obj = (Point*) alloc_object(pointClass);
 
     for (int i = 0; i < obj_array->get_length(); ++i) {
         obj_array->set_data(i, obj);
