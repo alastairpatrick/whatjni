@@ -112,13 +112,13 @@ public:
     operator bool() const {
         return obj;
     }
-/*
+
     template <typename U> bool operator==(const ref<U>& rhs) const {
         return is_same_object((jobject) obj, (jobject) rhs.obj);
     }
     template <typename U> bool operator!=(const ref<U>& rhs) const {
         return !is_same_object((jobject) obj, (jobject) rhs.obj);
-    }*/
+    }
 };
 
 template <typename T> bool operator==(const ref<T>& lhs, std::nullptr_t) {
@@ -133,7 +133,6 @@ template <typename T> bool operator==(std::nullptr_t, const ref<T>& rhs) {
 template <typename T> bool operator!=(std::nullptr_t, const ref<T>& rhs) {
     return rhs;
 }
-/*
 
 template<typename T> struct by_value {
     std::size_t operator()(const ref<T>& r) const {
@@ -152,11 +151,11 @@ template<typename T> struct by_identity {
         return lhs == rhs;
     }
 };
-*/
+
 }  // namespace whatjni
 
 namespace std {
-/*
+
 template<typename T> struct hash<::whatjni::ref<T>> {
     // must not be by_value<T>. by_identity<T> for consistency with std::equal_to<ref<T>>.
     ::whatjni::by_identity<T> hasher;
@@ -164,7 +163,7 @@ template<typename T> struct hash<::whatjni::ref<T>> {
         return hasher(r);
     }
 };
-*/
+
 }  // namespace std
 
 #endif  // WHATJNI_REF_H
